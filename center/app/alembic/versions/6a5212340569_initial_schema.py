@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: bfdf0e39eb6b
+Revision ID: 6a5212340569
 Revises: 
-Create Date: 2026-10-10 12:22:49.249267
+Create Date: 2026-10-10 12:42:05.786713
 """
 from typing import Sequence, Union
 
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision: str = 'bfdf0e39eb6b'
+revision: str = '6a5212340569'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -23,7 +23,7 @@ def upgrade() -> None:
     sa.Column('username', sa.String(length=64), nullable=False),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
     sa.Column('role', sa.String(length=32), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_operators_username'), 'operators', ['username'], unique=True)
@@ -34,7 +34,7 @@ def upgrade() -> None:
     sa.Column('target', sa.String(length=255), nullable=True),
     sa.Column('detail', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('ip', postgresql.INET(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['operator_id'], ['operators.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -44,8 +44,8 @@ def upgrade() -> None:
     sa.Column('level', sa.String(length=16), nullable=False),
     sa.Column('config', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('created_by', sa.UUID(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['created_by'], ['operators.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -56,9 +56,9 @@ def upgrade() -> None:
     sa.Column('enroll_token_hash', sa.String(length=255), nullable=False),
     sa.Column('agent_key_hash', sa.String(length=255), nullable=True),
     sa.Column('status', sa.String(length=16), nullable=False),
-    sa.Column('last_seen_at', sa.DateTime(), nullable=True),
+    sa.Column('last_seen_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('host_label', sa.String(length=128), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['profile_id'], ['profiles.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -67,7 +67,7 @@ def upgrade() -> None:
     sa.Column('profile_id', sa.UUID(), nullable=True),
     sa.Column('kind', sa.String(length=32), nullable=True),
     sa.Column('value_ref', sa.String(length=255), nullable=True),
-    sa.Column('triggered_at', sa.DateTime(), nullable=True),
+    sa.Column('triggered_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('trigger_meta', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.ForeignKeyConstraint(['profile_id'], ['profiles.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
@@ -77,8 +77,8 @@ def upgrade() -> None:
     sa.Column('honeypot_id', sa.UUID(), nullable=False),
     sa.Column('service', sa.String(length=16), nullable=False),
     sa.Column('source_ip', postgresql.INET(), nullable=True),
-    sa.Column('started_at', sa.DateTime(), nullable=False),
-    sa.Column('ended_at', sa.DateTime(), nullable=True),
+    sa.Column('started_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('ended_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('meta', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.ForeignKeyConstraint(['honeypot_id'], ['honeypots.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
@@ -91,7 +91,7 @@ def upgrade() -> None:
     sa.Column('kind', sa.String(length=32), nullable=True),
     sa.Column('path', sa.String(length=512), nullable=True),
     sa.Column('sha256', sa.String(length=64), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['honeypot_id'], ['honeypots.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['session_id'], ['sessions.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
@@ -104,7 +104,7 @@ def upgrade() -> None:
     sa.Column('password_hash', sa.String(length=255), nullable=True),
     sa.Column('password_preview', sa.String(length=64), nullable=True),
     sa.Column('success', sa.Boolean(), nullable=False),
-    sa.Column('occurred_at', sa.DateTime(), nullable=False),
+    sa.Column('occurred_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['honeypot_id'], ['honeypots.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['session_id'], ['sessions.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
@@ -121,8 +121,8 @@ def upgrade() -> None:
     sa.Column('severity', sa.String(length=16), nullable=False),
     sa.Column('session_id', sa.UUID(), nullable=True),
     sa.Column('payload', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('occurred_at', sa.DateTime(), nullable=False),
-    sa.Column('received_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('occurred_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('received_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('dedup_key', sa.String(length=128), nullable=True),
     sa.ForeignKeyConstraint(['honeypot_id'], ['honeypots.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['session_id'], ['sessions.id'], ondelete='SET NULL'),

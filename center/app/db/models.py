@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    DateTime,
     ForeignKey,
     Integer,
     String,
@@ -16,6 +17,9 @@ from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+# All timestamps are timezone-aware (stored as TIMESTAMPTZ).
+TS = DateTime(timezone=True)
 
 
 def _uuid_pk() -> Mapped[uuid.UUID]:
@@ -29,7 +33,7 @@ class Operator(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="operator")
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
 
 
 class Profile(Base):
@@ -42,9 +46,9 @@ class Profile(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("operators.id", ondelete="SET NULL"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=func.now(), nullable=False
+        TS, server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
     honeypots: Mapped[list[Honeypot]] = relationship(back_populates="profile")
@@ -61,9 +65,9 @@ class Honeypot(Base):
     enroll_token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     agent_key_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="unknown")
-    last_seen_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
     host_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
 
     profile: Mapped[Profile] = relationship(back_populates="honeypots")
 
@@ -77,8 +81,8 @@ class Session(Base):
     )
     service: Mapped[str] = mapped_column(String(16), nullable=False)  # ssh|http|db
     source_ip: Mapped[str | None] = mapped_column(INET, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(nullable=False)
-    ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    started_at: Mapped[datetime] = mapped_column(TS, nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
     meta: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
 
@@ -99,8 +103,8 @@ class Event(Base):
         ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True
     )
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    occurred_at: Mapped[datetime] = mapped_column(nullable=False)
-    received_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(TS, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
     # Idempotency for buffered re-delivery (FR-A4); unique so retries don't dup.
     dedup_key: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
 
@@ -119,7 +123,7 @@ class AuthAttempt(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     password_preview: Mapped[str | None] = mapped_column(String(64), nullable=True)
     success: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    occurred_at: Mapped[datetime] = mapped_column(nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(TS, nullable=False)
 
 
 class Artifact(Base):
@@ -135,7 +139,7 @@ class Artifact(Base):
     kind: Mapped[str | None] = mapped_column(String(32), nullable=True)  # pcap|session_log|upload
     path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
 
 
 class Honeytoken(Base):
@@ -147,7 +151,7 @@ class Honeytoken(Base):
     )
     kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
     value_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    triggered_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    triggered_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
     trigger_meta: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
 
@@ -162,4 +166,4 @@ class AuditLog(Base):
     target: Mapped[str | None] = mapped_column(String(255), nullable=True)
     detail: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     ip: Mapped[str | None] = mapped_column(INET, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
