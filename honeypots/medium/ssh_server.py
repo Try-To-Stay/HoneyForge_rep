@@ -15,7 +15,7 @@ from typing import Awaitable, Callable
 import asyncssh
 
 from honeypots.common.events import make_event
-from honeypots.medium.fake_fs import FakeShell
+from honeypots.medium.fake_fs import CANARY_PATHS, CANARY_TOKEN, FakeShell
 
 log = logging.getLogger("honeypot.ssh")
 
@@ -132,6 +132,23 @@ def _make_shell_handler(emit: EmitFn, port: int):
                         payload={"command": cmd},
                     )
                 )
+
+                # Honeytoken (FR-A6): reading the canary credential file fires a
+                # high-signal token_trigger event.
+                parts = cmd.split()
+                if len(parts) >= 2 and parts[0] == "cat" and shell.resolve(parts[1]) in CANARY_PATHS:
+                    await emit(
+                        make_event(
+                            "token_trigger",
+                            source_ip=info.get("src_ip"),
+                            dest_port=port,
+                            protocol="ssh",
+                            severity="high",
+                            session_id=sid,
+                            payload={"token": CANARY_TOKEN, "path": shell.resolve(parts[1])},
+                        )
+                    )
+
                 out = shell.run(cmd)
                 if out == "__EXIT__":
                     process.stdout.write("logout\r\n")

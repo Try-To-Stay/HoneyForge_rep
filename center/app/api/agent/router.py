@@ -21,7 +21,7 @@ from app.schemas.agent import (
 from app.security.agent_auth import AgentHoneypot
 from app.security.deps import DbSession
 from app.security.passwords import hash_token
-from app.services import telemetry
+from app.services import alerts, telemetry
 from app.services.config_etag import compute_etag
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -71,6 +71,7 @@ async def get_config(hp: AgentHoneypot, db: DbSession):
 async def post_telemetry(body: TelemetryIn, hp: AgentHoneypot, db: DbSession, request: Request):
     redis = getattr(request.app.state, "redis", None)
     accepted = await telemetry.ingest_events(db, redis, hp, body.events)
+    await alerts.evaluate(db, redis, hp, body.events)
     await telemetry.mark_seen(db, hp)
     await db.commit()
 

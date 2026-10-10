@@ -70,6 +70,18 @@ header {
 header strong { color: var(--accent); font-size: 16px; }
 .live.on { color: var(--online); }
 .live.off { color: var(--muted); }
+.alert-count { color: var(--offline); font-weight: 600; }
+
+.alerts-panel {
+  background: rgba(248, 81, 73, 0.08); border: 1px solid #f8514955;
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
+}
+.alert-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.alert-badge {
+  background: var(--offline); color: #1a1a1a; font-size: 11px; font-weight: 700;
+  padding: 1px 8px; border-radius: 4px; text-transform: uppercase;
+}
+.alert-row.rule-honeytoken .alert-badge { background: var(--accent); }
 
 .grid { display: grid; grid-template-columns: 280px 1fr; gap: 16px; padding: 16px; }
 aside { display: flex; flex-direction: column; gap: 8px; }

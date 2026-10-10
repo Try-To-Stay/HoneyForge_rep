@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # Honeypot liveness
     honeypot_offline_ttl_s: int = 120
 
+    # Alerts (Bonus FR-C7)
+    alert_bruteforce_threshold: int = 5
+    alert_window_s: int = 300
+
     # Orchestrator (Bonus FR-C6): one-button deploy of a honeypot container.
     orchestrator_image: str = "honeyforge_rep-honeypot-low"
     orchestrator_network: str = "honeyforge_rep_honeynet"

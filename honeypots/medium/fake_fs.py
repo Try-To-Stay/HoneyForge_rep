@@ -5,8 +5,14 @@ canned; nothing touches the real host.
 """
 from __future__ import annotations
 
+# Honeytoken (FR-A6): a canary credential file. Reading it should never happen
+# in normal use, so access is a high-signal indicator of compromise.
+CANARY_PATHS = {"/root/.aws/credentials"}
+CANARY_TOKEN = "AKIAHONEYFORGE0CANARY"
+
 _FS = {
-    "/root": ["backup.sh", "notes.txt", ".bash_history"],
+    "/root": ["backup.sh", "notes.txt", ".bash_history", ".aws"],
+    "/root/.aws": ["credentials", "config"],
     "/etc": ["passwd", "shadow", "hostname", "os-release"],
     "/var/www": ["index.html", "config.php"],
     "/home": ["ubuntu"],
@@ -25,6 +31,11 @@ _FILES = {
     ),
     "/var/www/config.php": "<?php $db_pass = 'REDACTED'; // see vault\n",
     "/home/ubuntu/todo.txt": "- patch openssl\n- review firewall rules\n",
+    "/root/.aws/config": "[default]\nregion = us-east-1\n",
+    "/root/.aws/credentials": (
+        f"[default]\naws_access_key_id = {CANARY_TOKEN}\n"
+        "aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n"
+    ),
 }
 
 
@@ -38,6 +49,9 @@ class FakeShell:
         who = "#" if self.user == "root" else "$"
         short = self.cwd.replace(f"/home/{self.user}", "~").replace("/root", "~")
         return f"{self.user}@{self.host}:{short}{who}"
+
+    def resolve(self, path: str) -> str:
+        return self._abspath(path)
 
     def _abspath(self, path: str) -> str:
         if not path or path == ".":
