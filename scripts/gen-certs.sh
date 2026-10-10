@@ -11,12 +11,13 @@ if [[ -f "$CERT_DIR/server.crt" ]]; then
   exit 0
 fi
 
-openssl req -x509 -nodes -newkey rsa:2048 \
+# MSYS_NO_PATHCONV stops Git Bash on Windows from mangling the -subj argument.
+MSYS_NO_PATHCONV=1 openssl req -x509 -nodes -newkey rsa:2048 \
   -keyout "$CERT_DIR/server.key" \
   -out "$CERT_DIR/server.crt" \
   -days 365 \
   -subj "/CN=honeyforge.local" \
-  -addext "subjectAltName=DNS:localhost,DNS:honeyforge.local,IP:127.0.0.1"
+  -addext "subjectAltName=DNS:localhost,DNS:honeyforge.local,DNS:nginx,IP:127.0.0.1"
 
 chmod 600 "$CERT_DIR/server.key"
 echo "Wrote server.crt / server.key to $CERT_DIR"
