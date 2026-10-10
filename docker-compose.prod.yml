@@ -18,7 +18,17 @@ services:
     restart: unless-stopped
   nginx:
     restart: unless-stopped
+  # Honeypot ports are published ONLY on 127.0.0.1 of the server — reachable
+  # from the host and via SSH tunnel for the team to attack, but never exposed
+  # to the internet. Remove these blocks to keep honeypots fully internal.
   honeypot-low:
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:2021:21"
+      - "127.0.0.1:2023:23"
+      - "127.0.0.1:23306:3306"
   honeypot-medium:
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:2222:22"
+      - "127.0.0.1:18081:80"
