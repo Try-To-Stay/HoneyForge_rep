@@ -3,7 +3,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.operator import auth, events, honeypots, profiles, sessions, stats
+from app.api.operator import (
+    alerts,
+    auth,
+    events,
+    export,
+    honeypots,
+    profiles,
+    sessions,
+    stats,
+)
 
 operator_router = APIRouter(prefix="/api/v1")
 operator_router.include_router(auth.router)
@@ -13,3 +22,5 @@ operator_router.include_router(honeypots.router)
 operator_router.include_router(events.router)
 operator_router.include_router(sessions.router)
 operator_router.include_router(stats.router)
+operator_router.include_router(alerts.router)
+operator_router.include_router(export.router)

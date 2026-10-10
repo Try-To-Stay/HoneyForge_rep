@@ -155,6 +155,21 @@ class Honeytoken(Base):
     trigger_meta: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
 
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    honeypot_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("honeypots.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    source_ip: Mapped[str | None] = mapped_column(INET, nullable=True)
+    rule: Mapped[str] = mapped_column(String(64), nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, default="high")
+    message: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

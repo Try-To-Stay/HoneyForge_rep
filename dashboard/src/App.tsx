@@ -1,11 +1,14 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   AttackEvent,
   Honeypot,
   Profile,
   SessionDetail,
   Summary,
   deployHoneypot,
+  downloadIocs,
+  getAlerts,
   getEvents,
   getHoneypots,
   getProfiles,
@@ -61,6 +64,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [honeypots, setHoneypots] = useState<Honeypot[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [events, setEvents] = useState<AttackEvent[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [live, setLive] = useState(false);
   const [filterHp, setFilterHp] = useState("");
   const [filterType, setFilterType] = useState("");
@@ -92,8 +96,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     let active = true;
     const tick = async () => {
       try {
-        const [hps, sum] = await Promise.all([getHoneypots(), getSummary()]);
-        if (active) { setHoneypots(hps); setSummary(sum); }
+        const [hps, sum, al] = await Promise.all([getHoneypots(), getSummary(), getAlerts()]);
+        if (active) { setHoneypots(hps); setSummary(sum); setAlerts(al); }
       } catch { /* ignore transient */ }
     };
     tick();
@@ -120,9 +124,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // Live WebSocket stream.
   const wsRef = useRef<WebSocket | null>(null);
   useEffect(() => {
-    const ws = openEventSocket((ev) => {
-      setEvents((prev) => (prev.some((e) => e.id === ev.id) ? prev : [ev, ...prev].slice(0, 500)));
-    });
+    const ws = openEventSocket(
+      (ev) => {
+        setEvents((prev) => (prev.some((e) => e.id === ev.id) ? prev : [ev, ...prev].slice(0, 500)));
+      },
+      (al) => {
+        setAlerts((prev) => (prev.some((a) => a.id === al.id) ? prev : [al, ...prev].slice(0, 100)));
+      },
+    );
     ws.onopen = () => setLive(true);
     ws.onclose = () => setLive(false);
     wsRef.current = ws;
@@ -137,7 +146,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         <strong>HoneyForge</strong>
         <span className={`live ${live ? "on" : "off"}`}>{live ? "● live" : "○ offline"}</span>
         {summary && <span className="muted">{summary.total_events} events</span>}
+        {alerts.length > 0 && <span className="alert-count">⚠ {alerts.length} alerts</span>}
         <div className="spacer" />
+        <button className="ghost" onClick={() => downloadIocs("csv").catch(() => {})}>Export CSV</button>
+        <button className="ghost" onClick={() => downloadIocs("stix").catch(() => {})}>Export STIX</button>
         <button className="ghost" onClick={onLogout}>Logout</button>
       </header>
 
@@ -169,6 +181,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </aside>
 
         <main>
+          {alerts.length > 0 && (
+            <div className="alerts-panel">
+              <h2>Alerts</h2>
+              {alerts.slice(0, 5).map((a) => (
+                <div key={a.id} className={`alert-row rule-${a.rule}`}>
+                  <span className="alert-badge">{a.rule}</span>
+                  <span>{a.message}</span>
+                  <span className="muted small">{fmtTime(a.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="filters">
             <select value={filterHp} onChange={(e) => setFilterHp(e.target.value)}>
               <option value="">all honeypots</option>

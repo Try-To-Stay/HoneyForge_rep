@@ -107,13 +107,44 @@ export const getSummary = () => authed<Summary>("/api/v1/stats/summary");
 export const getEvents = (params: Record<string, string>) =>
   authed<{ items: AttackEvent[]; next_cursor: number | null }>("/api/v1/events", params);
 
-export function openEventSocket(onEvent: (ev: AttackEvent) => void): WebSocket {
+export interface Alert {
+  id: number;
+  honeypot_id: string | null;
+  source_ip: string | null;
+  rule: string;
+  severity: string;
+  message: string;
+  event_count: number;
+  created_at: string;
+}
+
+export const getAlerts = () => authed<Alert[]>("/api/v1/alerts");
+
+export async function downloadIocs(format: "csv" | "stix") {
+  const resp = await fetch(`/api/v1/export/iocs?format=${format}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!resp.ok) throw new Error(`export failed: HTTP ${resp.status}`);
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = format === "csv" ? "honeyforge-iocs.csv" : "honeyforge-iocs.stix.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function openEventSocket(
+  onEvent: (ev: AttackEvent) => void,
+  onAlert: (a: Alert) => void,
+): WebSocket {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${window.location.host}/api/v1/ws?token=${getToken()}`);
   ws.onmessage = (m) => {
     try {
       const msg = JSON.parse(m.data);
       if (msg.type === "event") onEvent(msg.data as AttackEvent);
+      else if (msg.type === "alert") onAlert(msg.data as Alert);
     } catch {
       /* ignore malformed */
     }
