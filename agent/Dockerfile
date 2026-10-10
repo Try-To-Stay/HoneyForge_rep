@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-RUN pip install --upgrade pip && pip install "httpx>=0.27,<0.28"
+RUN pip install --upgrade pip && pip install "httpx>=0.27,<0.28" "asyncssh>=2.18,<3"
 
 COPY agent/honeyagent /app/honeyagent
 COPY honeypots /app/honeypots

@@ -2,9 +2,11 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   AttackEvent,
   Honeypot,
+  SessionDetail,
   Summary,
   getEvents,
   getHoneypots,
+  getSession,
   getSummary,
   getToken,
   login,
@@ -60,6 +62,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [filterHp, setFilterHp] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterIp, setFilterIp] = useState("");
+  const [session, setSession] = useState<SessionDetail | null>(null);
+
+  const openSession = useCallback(async (id: string) => {
+    try {
+      setSession(await getSession(id));
+    } catch { /* ignore */ }
+  }, []);
 
   const hpName = useMemo(() => {
     const m: Record<string, string> = {};
@@ -179,7 +188,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </thead>
             <tbody>
               {shown.map((ev) => (
-                <tr key={ev.id} className={`sev-${ev.severity}`}>
+                <tr
+                  key={ev.id}
+                  className={`sev-${ev.severity} ${ev.session_id ? "clickable" : ""}`}
+                  onClick={() => ev.session_id && openSession(ev.session_id)}
+                >
                   <td className="mono">{fmtTime(ev.occurred_at)}</td>
                   <td><span className={`tag t-${ev.event_type}`}>{ev.event_type}</span></td>
                   <td>{hpName[ev.honeypot_id] ?? ev.honeypot_id.slice(0, 8)}</td>
@@ -192,6 +205,57 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </tbody>
           </table>
         </main>
+      </div>
+
+      {session && <SessionModal session={session} hpName={hpName} onClose={() => setSession(null)} />}
+    </div>
+  );
+}
+
+function SessionModal({
+  session,
+  hpName,
+  onClose,
+}: {
+  session: SessionDetail;
+  hpName: Record<string, string>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <b>Session · {session.service}</b>
+          <button className="ghost" onClick={onClose}>close</button>
+        </div>
+        <div className="muted small">
+          source {session.source_ip ?? "—"} · started {fmt(session.started_at)}
+          {session.ended_at ? ` · ended ${fmtTime(session.ended_at)}` : " · active"}
+        </div>
+
+        <h3>Login attempts ({session.auth_attempts.length})</h3>
+        <table className="events">
+          <tbody>
+            {session.auth_attempts.map((a) => (
+              <tr key={a.id} className={a.success ? "sev-high" : ""}>
+                <td className="mono">{a.username ?? "—"}</td>
+                <td className="mono">{a.password_preview ?? "—"}</td>
+                <td>{a.success ? "✓ success" : "✗ failed"}</td>
+                <td className="mono small">{fmtTime(a.occurred_at)}</td>
+              </tr>
+            ))}
+            {session.auth_attempts.length === 0 && <tr><td className="muted">none</td></tr>}
+          </tbody>
+        </table>
+
+        <h3>Commands ({session.commands.length})</h3>
+        <div className="terminal">
+          {session.commands.map((c) => (
+            <div key={c.id} className="mono small">$ {String((c.payload as Record<string, unknown>).command ?? "")}</div>
+          ))}
+          {session.commands.length === 0 && <div className="muted">none</div>}
+        </div>
+        <div className="muted small" style={{ marginTop: 8 }}>honeypot: {hpName[session.honeypot_id ?? ""] ?? ""}</div>
       </div>
     </div>
   );

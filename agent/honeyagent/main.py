@@ -14,8 +14,11 @@ import time
 
 from honeyagent.buffer import Buffer
 from honeyagent.config import AgentConfig
+from honeyagent.stealth import set_process_name
 from honeyagent.transport import Transport
 from honeypots.low.listener import LowHoneypot
+from honeypots.medium.http_admin import HTTPHoneypot
+from honeypots.medium.ssh_server import SSHHoneypot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("honeyagent")
@@ -29,6 +32,24 @@ async def _enroll_with_retry(transport: Transport, token: str) -> dict:
         except Exception as exc:  # noqa: BLE001
             log.warning("enroll failed (%s); retry in %ds", exc, delay)
             await asyncio.sleep(delay)
+
+
+def _build_honeypots(services: list[dict], emit):
+    """Instantiate honeypots from the profile's service list.
+
+    Plain TCP banner services are handled together by the Low honeypot; ssh and
+    http services each get their Medium honeypot.
+    """
+    honeypots: list = []
+    tcp_services = [s for s in services if s.get("type") in (None, "tcp")]
+    if tcp_services:
+        honeypots.append(LowHoneypot(tcp_services, emit))
+    for svc in services:
+        if svc.get("type") == "ssh":
+            honeypots.append(SSHHoneypot(svc, emit))
+        elif svc.get("type") == "http":
+            honeypots.append(HTTPHoneypot(svc, emit))
+    return honeypots
 
 
 def _next_interval(cfg: AgentConfig) -> float:
@@ -53,11 +74,15 @@ async def run() -> None:
     config = data.get("config", {})
     log.info("enrolled as %s (etag=%s)", data.get("agent_id"), etag)
 
+    # Host-side stealth (MASK-4): adopt an innocuous process name from the profile.
+    set_process_name((config.get("masking") or {}).get("process_name"))
+
     async def emit(event: dict) -> None:
         await buffer.enqueue(event)
 
-    low = LowHoneypot(config.get("services", []), emit)
-    await low.start()
+    honeypots = _build_honeypots(config.get("services", []), emit)
+    for hp in honeypots:
+        await hp.start()
 
     async def sender() -> None:
         nonlocal etag
@@ -88,7 +113,8 @@ async def run() -> None:
     try:
         await sender()
     finally:
-        await low.stop()
+        for hp in honeypots:
+            await hp.stop()
         await transport.aclose()
 
 
