@@ -84,8 +84,25 @@ export interface SessionDetail {
   commands: AttackEvent[];
 }
 
+export interface Profile {
+  id: string;
+  name: string;
+  level: string;
+}
+
 export const getHoneypots = () => authed<Honeypot[]>("/api/v1/honeypots");
+export const getProfiles = () => authed<Profile[]>("/api/v1/profiles");
 export const getSession = (id: string) => authed<SessionDetail>(`/api/v1/sessions/${id}`);
+
+export async function deployHoneypot(profile_id: string, name: string, host_label: string) {
+  const resp = await fetch("/api/v1/honeypots/deploy", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ profile_id, name, host_label }),
+  });
+  if (!resp.ok) throw new Error(`deploy failed: HTTP ${resp.status}`);
+  return resp.json();
+}
 export const getSummary = () => authed<Summary>("/api/v1/stats/summary");
 export const getEvents = (params: Record<string, string>) =>
   authed<{ items: AttackEvent[]; next_cursor: number | null }>("/api/v1/events", params);

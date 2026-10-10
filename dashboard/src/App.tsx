@@ -2,10 +2,13 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   AttackEvent,
   Honeypot,
+  Profile,
   SessionDetail,
   Summary,
+  deployHoneypot,
   getEvents,
   getHoneypots,
+  getProfiles,
   getSession,
   getSummary,
   getToken,
@@ -161,6 +164,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               ))}
             </>
           )}
+
+          <DeployPanel />
         </aside>
 
         <main>
@@ -209,6 +214,49 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       {session && <SessionModal session={session} hpName={hpName} onClose={() => setSession(null)} />}
     </div>
+  );
+}
+
+function DeployPanel() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profileId, setProfileId] = useState("");
+  const [name, setName] = useState("edge-node");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getProfiles().then((p) => {
+      setProfiles(p);
+      if (p[0]) setProfileId(p[0].id);
+    }).catch(() => { /* ignore */ });
+  }, []);
+
+  const deploy = async () => {
+    if (!profileId) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await deployHoneypot(profileId, name, "deployed");
+      setMsg(`deployed · ${r.container_id}`);
+    } catch (e) {
+      setMsg((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <h2>Deploy honeypot</h2>
+      <div className="deploy">
+        <select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
+          {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="name" />
+        <button disabled={busy || !profileId} onClick={deploy}>{busy ? "…" : "Deploy"}</button>
+        {msg && <div className="muted small">{msg}</div>}
+      </div>
+    </>
   );
 }
 

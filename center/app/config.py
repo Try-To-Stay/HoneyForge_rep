@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     # Honeypot liveness
     honeypot_offline_ttl_s: int = 120
 
+    # Orchestrator (Bonus FR-C6): one-button deploy of a honeypot container.
+    orchestrator_image: str = "honeyforge_rep-honeypot-low"
+    orchestrator_network: str = "honeyforge_rep_honeynet"
+    orchestrator_base_url: str = "https://nginx:8443"
+    orchestrator_tls_verify: bool = False
+
     @property
     def sqlalchemy_url(self) -> str:
         if self.database_url:

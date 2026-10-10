@@ -35,7 +35,7 @@ LOW_PROFILE = {
             {"type": "tcp", "port": 3306, "banner": "5.7.42-log"},
         ],
         "logging": {"capture_commands": False},
-        "masking": {"beacon_jitter_s": [20, 40], "process_name": "systemd-timesyncd"},
+        "masking": {"beacon_jitter_s": [8, 15], "process_name": "systemd-timesyncd"},
     },
 }
 
@@ -60,7 +60,7 @@ MEDIUM_PROFILE = {
             },
         ],
         "logging": {"capture_commands": True, "mask_passwords": True},
-        "masking": {"beacon_jitter_s": [20, 40], "process_name": "systemd-timesyncd"},
+        "masking": {"beacon_jitter_s": [8, 15], "process_name": "systemd-timesyncd"},
     },
 }
 

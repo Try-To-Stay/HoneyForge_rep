@@ -11,7 +11,7 @@ from app.db.models import Honeypot, Profile
 from app.schemas.honeypot import HoneypotCreate, HoneypotCreated, HoneypotOut
 from app.security.deps import CurrentOperator, DbSession
 from app.security.passwords import hash_token
-from app.services import audit
+from app.services import audit, orchestrator
 from app.services.liveness import effective_status
 
 router = APIRouter(prefix="/honeypots", tags=["honeypots"])
@@ -54,6 +54,44 @@ async def register_honeypot(body: HoneypotCreate, current: CurrentOperator, db: 
     await db.commit()
     await db.refresh(hp)
     return HoneypotCreated(honeypot=_to_out(hp), enroll_token=enroll_token)
+
+
+@router.post("/deploy", status_code=status.HTTP_201_CREATED)
+async def deploy_from_profile(body: HoneypotCreate, current: CurrentOperator, db: DbSession):
+    """One-button deploy from a profile (Bonus FR-C6).
+
+    Creates a new honeypot bound to the profile, then launches a honeypot-host
+    container that self-enrolls with a fresh token. Lab-only (needs the Docker
+    socket mounted into the center).
+    """
+    profile = await db.get(Profile, body.profile_id)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="profile_id does not exist"
+        )
+
+    enroll_token = secrets.token_urlsafe(32)
+    hp = Honeypot(
+        name=body.name,
+        profile_id=body.profile_id,
+        host_label=body.host_label,
+        enroll_token_hash=hash_token(enroll_token),
+        status="unknown",
+    )
+    db.add(hp)
+    await db.flush()
+    await audit.record(db, operator_id=current.id, action="honeypot.deploy", target=str(hp.id))
+    await db.commit()
+    await db.refresh(hp)
+
+    try:
+        container_id = await orchestrator.deploy_honeypot(str(hp.id), enroll_token)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"deploy failed: {exc.__class__.__name__}: {exc}",
+        )
+    return {"status": "deploying", "container_id": container_id, "honeypot": _to_out(hp)}
 
 
 @router.get("/{honeypot_id}", response_model=HoneypotOut)
