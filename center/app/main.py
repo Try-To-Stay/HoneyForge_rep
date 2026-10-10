@@ -17,6 +17,7 @@ from app.api.agent.router import router as agent_router
 from app.api.operator.router import operator_router
 from app.config import get_settings
 from app.db.base import engine
+from app.realtime.ws import router as ws_router
 
 settings = get_settings()
 
@@ -41,6 +42,7 @@ app = FastAPI(
 
 app.include_router(operator_router)
 app.include_router(agent_router)
+app.include_router(ws_router)
 
 
 @app.get("/healthz", tags=["ops"])
