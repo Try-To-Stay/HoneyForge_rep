@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from typing import Awaitable, Callable
 
 from honeypots.common.events import make_event
@@ -37,6 +38,9 @@ class LowHoneypot:
             src_ip = peer[0] if peer else None
             src_port = peer[1] if peer and len(peer) > 1 else None
             try:
+                # Anti-fingerprinting (MASK-6): tiny random delay so the banner
+                # timing has no constant signature a scanner could key on.
+                await asyncio.sleep(random.uniform(0.05, 0.35))
                 if banner:
                     writer.write(banner.encode(errors="ignore"))
                     await writer.drain()

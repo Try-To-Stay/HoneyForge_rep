@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import uuid
 from typing import Awaitable, Callable
 
@@ -73,24 +74,25 @@ class _HoneySSHServer(asyncssh.SSHServer):
     def password_auth_supported(self) -> bool:
         return True
 
-    def validate_password(self, username: str, password: str) -> bool:
+    async def validate_password(self, username: str, password: str) -> bool:
         info = _SESSIONS.get(self._peer, {})
         ok = any(
             username == c.get("username") and password == c.get("password")
             for c in self._creds
         )
-        asyncio.create_task(
-            self._emit(
-                make_event(
-                    "auth_attempt",
-                    source_ip=info.get("src_ip"),
-                    source_port=info.get("src_port"),
-                    dest_port=self._port,
-                    protocol="ssh",
-                    severity="medium",
-                    session_id=info.get("session_id"),
-                    payload={"username": username, "password": password, "success": ok},
-                )
+        # Anti-fingerprinting (MASK-6): jitter the auth response time so success
+        # and failure aren't trivially distinguishable by timing.
+        await asyncio.sleep(random.uniform(0.1, 0.5))
+        await self._emit(
+            make_event(
+                "auth_attempt",
+                source_ip=info.get("src_ip"),
+                source_port=info.get("src_port"),
+                dest_port=self._port,
+                protocol="ssh",
+                severity="medium",
+                session_id=info.get("session_id"),
+                payload={"username": username, "password": password, "success": ok},
             )
         )
         return ok
