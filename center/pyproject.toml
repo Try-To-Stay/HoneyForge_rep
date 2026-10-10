@@ -2,8 +2,8 @@
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["app"]
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [project]
 name = "honeyforge-center"
@@ -21,6 +21,7 @@ dependencies = [
     "redis>=5.2,<6",
     "argon2-cffi>=23.1,<24",
     "pyjwt>=2.10,<3",
+    "python-multipart>=0.0.12,<0.1",
 ]
 
 [project.optional-dependencies]

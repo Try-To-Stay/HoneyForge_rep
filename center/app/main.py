@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api.operator.router import operator_router
 from app.config import get_settings
 from app.db.base import engine
 
@@ -35,6 +36,9 @@ app = FastAPI(
     summary="Centralized honeypot management platform (MVP)",
     lifespan=lifespan,
 )
+
+
+app.include_router(operator_router)
 
 
 @app.get("/healthz", tags=["ops"])
