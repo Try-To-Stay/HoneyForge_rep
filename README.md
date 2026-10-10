@@ -41,13 +41,13 @@ docker-compose.
 
 ```bash
 cp .env.example .env              # при необходимости отредактируйте секреты
-bash scripts/gen-certs.sh         # self-signed TLS для канала телеметрии (один раз)
-docker compose up --build
-docker compose exec -e PYTHONPATH=/app center python scripts/seed.py   # оператор, профили, Low-ловушка
+docker compose up --build         # всё остальное — автоматически
 ```
 
-После этого контейнер `honeypot-low` сам регистрируется в центре и начинает
-слушать порты-приманки. Проверить сценарий «атака → событие»:
+Одна команда поднимает весь стек: `cert-init` генерирует self-signed TLS-сертификат,
+центр применяет миграции и засевает оператора/профили/ловушки, а контейнеры
+`honeypot-low` и `honeypot-medium` сами регистрируются и начинают слушать порты-приманки.
+Проверить сценарий «атака → событие»:
 
 ```bash
 # «атакующий» подключается к Low-ловушке (host 2021 -> honeypot tcp/21)
@@ -67,7 +67,7 @@ curl http://localhost:8080/healthz
 - `http://localhost:8080` — операторский контур (Control API; Swagger — `/docs`).
 - `http://localhost:8088` — замаскированный публичный контур (приём телеметрии, вводится в Спринте 2).
 
-Засеять демо-оператора и профили (идемпотентно):
+Seed выполняется автоматически при старте центра (идемпотентно). Запустить вручную:
 
 ```bash
 docker compose exec -e PYTHONPATH=/app center python scripts/seed.py

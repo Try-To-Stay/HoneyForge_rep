@@ -48,6 +48,15 @@ services:
       start_period: 15s
     networks: [mgmt]
 
+  # Generates the self-signed TLS cert into the shared `certs` volume if absent,
+  # then exits — makes `docker compose up` fully self-contained.
+  cert-init:
+    build: ./center
+    entrypoint: ["python", "scripts/gen_certs.py", "/certs"]
+    volumes:
+      - certs:/certs
+    networks: [mgmt]
+
   dashboard:
     build: ./dashboard
     networks: [mgmt]
@@ -59,10 +68,12 @@ services:
         condition: service_healthy
       dashboard:
         condition: service_started
+      cert-init:
+        condition: service_completed_successfully
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/sites:/etc/nginx/conf.d:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      - certs:/etc/nginx/certs:ro
     ports:
       - "${MGMT_HTTP_PORT:-8080}:80"        # operator mgmt (dashboard + API)
       - "${PUBLIC_HTTPS_PORT:-8443}:8443"   # disguised TLS collector (honeynet)
@@ -113,6 +124,7 @@ volumes:
   pgdata:
   agentdata_low:
   agentdata_medium:
+  certs:
 
 networks:
   mgmt:
