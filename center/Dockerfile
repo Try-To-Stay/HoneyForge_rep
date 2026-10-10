@@ -8,6 +8,7 @@ WORKDIR /app
 
 COPY pyproject.toml alembic.ini ./
 COPY app ./app
+COPY scripts ./scripts
 RUN pip install --upgrade pip && pip install .
 
 COPY entrypoint.sh ./
