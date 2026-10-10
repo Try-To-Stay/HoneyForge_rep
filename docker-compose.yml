@@ -89,9 +89,30 @@ services:
       - "23306:3306"
     networks: [honeynet]
 
+  # Second honeypot host: Medium (fake-SSH + fake-HTTP admin).
+  honeypot-medium:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    depends_on:
+      nginx:
+        condition: service_started
+    environment:
+      HONEYFORGE_BASE_URL: https://nginx:8443
+      HONEYFORGE_ENROLL_TOKEN: ${SEED_MEDIUM_ENROLL_TOKEN}
+      AGENT_TLS_VERIFY: "false"
+      AGENT_BEACON_INTERVAL_S: "10"
+    volumes:
+      - agentdata_medium:/data
+    ports:
+      - "2222:22"      # fake-SSH
+      - "8081:80"      # fake-HTTP admin
+    networks: [honeynet]
+
 volumes:
   pgdata:
   agentdata_low:
+  agentdata_medium:
 
 networks:
   mgmt:

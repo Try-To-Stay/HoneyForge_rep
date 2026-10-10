@@ -22,6 +22,8 @@ OPERATOR_USER = os.getenv("SEED_OPERATOR_USER", "admin")
 OPERATOR_PASSWORD = os.getenv("SEED_OPERATOR_PASSWORD", "honeyforge-admin")
 LOW_ENROLL_TOKEN = os.getenv("SEED_LOW_ENROLL_TOKEN", "dev-low-enroll-token")
 LOW_HONEYPOT_NAME = "honeypot-low-01"
+MEDIUM_ENROLL_TOKEN = os.getenv("SEED_MEDIUM_ENROLL_TOKEN", "dev-medium-enroll-token")
+MEDIUM_HONEYPOT_NAME = "honeypot-medium-01"
 
 LOW_PROFILE = {
     "name": "Low — generic TCP banners",
@@ -116,6 +118,23 @@ async def main() -> None:
             print(f"created honeypot '{LOW_HONEYPOT_NAME}'")
         else:
             print(f"honeypot '{LOW_HONEYPOT_NAME}' already exists")
+
+        med_exists = await db.execute(
+            select(Honeypot).where(Honeypot.name == MEDIUM_HONEYPOT_NAME)
+        )
+        if med_exists.scalar_one_or_none() is None:
+            db.add(
+                Honeypot(
+                    name=MEDIUM_HONEYPOT_NAME,
+                    profile_id=profiles["medium"].id,
+                    enroll_token_hash=hash_token(MEDIUM_ENROLL_TOKEN),
+                    host_label="app-prod-01",
+                    status="unknown",
+                )
+            )
+            print(f"created honeypot '{MEDIUM_HONEYPOT_NAME}'")
+        else:
+            print(f"honeypot '{MEDIUM_HONEYPOT_NAME}' already exists")
 
         await db.commit()
     print("seed done")
