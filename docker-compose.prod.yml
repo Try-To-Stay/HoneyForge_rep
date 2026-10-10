@@ -1,0 +1,24 @@
+# Production / VPS overlay — demo mode.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Deliberately does NOT load docker-compose.override.yml, so there is no Docker
+# socket, no source bind-mount, and no honeypot ports published to the host.
+# Honeypots listen only on the internal honeynet; the only thing reachable from
+# outside is the operator dashboard on MGMT_HTTP_PORT (put it behind your TLS
+# reverse proxy and/or firewall to trusted IPs).
+
+services:
+  postgres:
+    restart: unless-stopped
+  redis:
+    restart: unless-stopped
+  center:
+    restart: unless-stopped
+  dashboard:
+    restart: unless-stopped
+  nginx:
+    restart: unless-stopped
+  honeypot-low:
+    restart: unless-stopped
+  honeypot-medium:
+    restart: unless-stopped
