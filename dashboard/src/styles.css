@@ -97,6 +97,22 @@ table.events td { padding: 6px 8px; border-bottom: 1px solid var(--panel2); vert
 tr.sev-high { background: rgba(248, 81, 73, 0.08); }
 tr.sev-medium { background: rgba(240, 180, 41, 0.06); }
 
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: var(--panel2); }
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: grid; place-items: center; z-index: 10;
+}
+.modal {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; width: min(620px, 92vw); max-height: 86vh; overflow: auto;
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; }
+.modal h3 { font-size: 12px; text-transform: uppercase; color: var(--muted); margin: 16px 0 6px; }
+.terminal { background: #0a0d12; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.terminal .mono { color: #7ee787; }
+
 .tag { padding: 1px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border); }
 .t-scan { color: #58a6ff; border-color: #58a6ff55; }
 .t-connect { color: #3fb950; border-color: #3fb95055; }

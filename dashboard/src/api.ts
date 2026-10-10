@@ -11,6 +11,7 @@ export interface Honeypot {
 export interface AttackEvent {
   id: number;
   honeypot_id: string;
+  session_id?: string | null;
   event_type: string;
   source_ip: string | null;
   source_port: number | null;
@@ -72,7 +73,19 @@ export async function login(username: string, password: string): Promise<void> {
   setToken(data.access_token);
 }
 
+export interface SessionDetail {
+  id: string;
+  honeypot_id: string;
+  service: string;
+  source_ip: string | null;
+  started_at: string;
+  ended_at: string | null;
+  auth_attempts: { id: number; username: string | null; password_preview: string | null; success: boolean; occurred_at: string }[];
+  commands: AttackEvent[];
+}
+
 export const getHoneypots = () => authed<Honeypot[]>("/api/v1/honeypots");
+export const getSession = (id: string) => authed<SessionDetail>(`/api/v1/sessions/${id}`);
 export const getSummary = () => authed<Summary>("/api/v1/stats/summary");
 export const getEvents = (params: Record<string, string>) =>
   authed<{ items: AttackEvent[]; next_cursor: number | null }>("/api/v1/events", params);
