@@ -1,0 +1,37 @@
+# Secrets & env
+.env
+*.env
+!.env.example
+
+# TLS / certs
+nginx/certs/
+*.pem
+*.key
+*.crt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / dashboard
+node_modules/
+dashboard/dist/
+
+# Agent local buffer
+*.sqlite
+*.sqlite3
+
+# Artifacts (captured sessions / pcap)
+/data/artifacts/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
