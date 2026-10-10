@@ -1,6 +1,10 @@
-# HoneyForge — Sprint 0 stack: center + PostgreSQL + Redis + Nginx.
-# Network segmentation (mgmt vs honeynet) and TLS are introduced in Sprint 2
-# together with the agent and honeypots. See docs/DESIGN.md §4, §8.
+# HoneyForge stack.
+#
+# Network segmentation (MASK-3): postgres/redis/center live on the internal
+# `mgmt` network with no route from the honeynet. Honeypot hosts live on
+# `honeynet`. Only nginx straddles both, and the honeypot reaches the center
+# solely through the disguised TLS endpoint on nginx. TLS (MASK-1) terminates
+# at nginx:8443. Run scripts/gen-certs.sh once before the first `up`.
 
 services:
   postgres:
@@ -16,7 +20,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    networks: [honeyforge]
+    networks: [mgmt]
 
   redis:
     image: redis:7-alpine
@@ -26,7 +30,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    networks: [honeyforge]
+    networks: [mgmt]
 
   center:
     build: ./center
@@ -42,7 +46,7 @@ services:
       timeout: 5s
       retries: 6
       start_period: 15s
-    networks: [honeyforge]
+    networks: [mgmt]
 
   nginx:
     image: nginx:1.27-alpine
@@ -52,14 +56,40 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/sites:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
     ports:
-      - "${MGMT_HTTP_PORT:-8080}:80"      # operator mgmt (dashboard + API)
-      - "${PUBLIC_HTTP_PORT:-8088}:8088"  # disguised public collector (honeynet)
-    networks: [honeyforge]
+      - "${MGMT_HTTP_PORT:-8080}:80"        # operator mgmt (dashboard + API)
+      - "${PUBLIC_HTTPS_PORT:-8443}:8443"   # disguised TLS collector (honeynet)
+    networks: [mgmt, honeynet]
+
+  # Honeypot host: agent + Low honeypot in one image (DESIGN ADR-3).
+  honeypot-low:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    depends_on:
+      nginx:
+        condition: service_started
+    environment:
+      HONEYFORGE_BASE_URL: https://nginx:8443
+      HONEYFORGE_ENROLL_TOKEN: ${SEED_LOW_ENROLL_TOKEN}
+      AGENT_TLS_VERIFY: "false"   # self-signed dev cert; mTLS/pinning is Bonus (MASK-7)
+      AGENT_BEACON_INTERVAL_S: "10"
+    volumes:
+      - agentdata_low:/data
+    ports:
+      - "2021:21"      # attacker-facing honeypot ports (demo)
+      - "2023:23"
+      - "23306:3306"
+    networks: [honeynet]
 
 volumes:
   pgdata:
+  agentdata_low:
 
 networks:
-  honeyforge:
+  mgmt:
+    driver: bridge
+    internal: true
+  honeynet:
     driver: bridge

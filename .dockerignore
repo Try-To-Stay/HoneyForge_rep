@@ -1,0 +1,12 @@
+.git
+**/__pycache__
+**/*.pyc
+.venv
+venv
+dashboard/node_modules
+dashboard/dist
+data
+nginx/certs
+**/*.sqlite
+**/*.sqlite3
+docs

@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api.agent.router import router as agent_router
 from app.api.operator.router import operator_router
 from app.config import get_settings
 from app.db.base import engine
@@ -39,6 +40,7 @@ app = FastAPI(
 
 
 app.include_router(operator_router)
+app.include_router(agent_router)
 
 
 @app.get("/healthz", tags=["ops"])

@@ -15,11 +15,13 @@ import os
 from sqlalchemy import select
 
 from app.db.base import SessionLocal
-from app.db.models import Operator, Profile
-from app.security.passwords import hash_password
+from app.db.models import Honeypot, Operator, Profile
+from app.security.passwords import hash_password, hash_token
 
 OPERATOR_USER = os.getenv("SEED_OPERATOR_USER", "admin")
 OPERATOR_PASSWORD = os.getenv("SEED_OPERATOR_PASSWORD", "honeyforge-admin")
+LOW_ENROLL_TOKEN = os.getenv("SEED_LOW_ENROLL_TOKEN", "dev-low-enroll-token")
+LOW_HONEYPOT_NAME = "honeypot-low-01"
 
 LOW_PROFILE = {
     "name": "Low — generic TCP banners",
@@ -77,20 +79,43 @@ async def main() -> None:
         else:
             print(f"operator '{OPERATOR_USER}' already exists")
 
+        profiles: dict[str, Profile] = {}
         for spec in (LOW_PROFILE, MEDIUM_PROFILE):
             exists = await db.execute(select(Profile).where(Profile.name == spec["name"]))
-            if exists.scalar_one_or_none() is not None:
+            found = exists.scalar_one_or_none()
+            if found is not None:
+                profiles[spec["level"]] = found
                 print(f"profile '{spec['name']}' already exists")
                 continue
+            profile = Profile(
+                name=spec["name"],
+                level=spec["level"],
+                config=spec["config"],
+                created_by=operator.id,
+            )
+            db.add(profile)
+            await db.flush()
+            profiles[spec["level"]] = profile
+            print(f"created profile '{spec['name']}'")
+
+        # A Low honeypot with a known enroll token so the honeypot-low container
+        # self-enrolls reproducibly on `docker compose up`.
+        hp_exists = await db.execute(
+            select(Honeypot).where(Honeypot.name == LOW_HONEYPOT_NAME)
+        )
+        if hp_exists.scalar_one_or_none() is None:
             db.add(
-                Profile(
-                    name=spec["name"],
-                    level=spec["level"],
-                    config=spec["config"],
-                    created_by=operator.id,
+                Honeypot(
+                    name=LOW_HONEYPOT_NAME,
+                    profile_id=profiles["low"].id,
+                    enroll_token_hash=hash_token(LOW_ENROLL_TOKEN),
+                    host_label="edge-cache-07",
+                    status="unknown",
                 )
             )
-            print(f"created profile '{spec['name']}'")
+            print(f"created honeypot '{LOW_HONEYPOT_NAME}'")
+        else:
+            print(f"honeypot '{LOW_HONEYPOT_NAME}' already exists")
 
         await db.commit()
     print("seed done")
