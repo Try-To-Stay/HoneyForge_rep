@@ -20,7 +20,8 @@
 
 - **Спринт 0 (каркас)** — готово: `docker compose up` поднимает центр + PostgreSQL + Redis + Nginx, healthcheck зелёный.
 - **Спринт 1 (центр-ядро)** — готово: Alembic-миграции (авто при старте), JWT-аутентификация оператора, CRUD профилей (FR-C1), регистрация ловушек со статусами (FR-C2), Swagger, seed-скрипт.
-- Агент, ловушки, realtime и dashboard — следующие спринты (см. DESIGN §9).
+- **Спринт 2 (агент + канал)** — готово: агент (enroll/config-pull/beacon) с устойчивым буфером и дослылкой (FR-A3/FR-A4), Low-ловушка с TCP-баннерами (FR-A1), приём телеметрии и выдача конфига (FR-C3), хранение событий с фильтрами (FR-C4). Канал по TLS (MASK-1) через замаскированный endpoint `/assets/v3/*` (MASK-2); сегментация сетей mgmt/honeynet (MASK-3).
+- Realtime-лента и dashboard — Спринт 3; Medium-ловушка — Спринт 4 (см. DESIGN §9).
 
 ## Стек
 
@@ -30,9 +31,22 @@ docker-compose.
 ## Быстрый старт (Спринт 0)
 
 ```bash
-cp .env.example .env        # при необходимости отредактируйте секреты
+cp .env.example .env              # при необходимости отредактируйте секреты
+bash scripts/gen-certs.sh         # self-signed TLS для канала телеметрии (один раз)
 docker compose up --build
+docker compose exec -e PYTHONPATH=/app center python scripts/seed.py   # оператор, профили, Low-ловушка
 ```
+
+После этого контейнер `honeypot-low` сам регистрируется в центре и начинает
+слушать порты-приманки. Проверить сценарий «атака → событие»:
+
+```bash
+# «атакующий» подключается к Low-ловушке (host 2021 -> honeypot tcp/21)
+printf 'USER root\r\n' | nc localhost 2021
+```
+
+Событие появится в `GET /api/v1/events` в течение beacon-интервала (~10 c).
+Порты-приманки на хосте: `2021`→21 (FTP), `2023`→23 (telnet), `23306`→3306 (MySQL).
 
 Проверка готовности:
 
