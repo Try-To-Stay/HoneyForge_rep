@@ -9,6 +9,7 @@ import {
   deployHoneypot,
   downloadIocs,
   getAlerts,
+  getCapabilities,
   getEvents,
   getHoneypots,
   getProfiles,
@@ -248,13 +249,18 @@ function DeployPanel() {
   const [name, setName] = useState("edge-node");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
+    getCapabilities().then((c) => setEnabled(c.orchestrator)).catch(() => setEnabled(false));
     getProfiles().then((p) => {
       setProfiles(p);
       if (p[0]) setProfileId(p[0].id);
     }).catch(() => { /* ignore */ });
   }, []);
+
+  // Hide the panel entirely when one-button deploy isn't available (e.g. prod).
+  if (enabled === false) return null;
 
   const deploy = async () => {
     if (!profileId) return;

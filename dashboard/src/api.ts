@@ -92,6 +92,7 @@ export interface Profile {
 
 export const getHoneypots = () => authed<Honeypot[]>("/api/v1/honeypots");
 export const getProfiles = () => authed<Profile[]>("/api/v1/profiles");
+export const getCapabilities = () => authed<{ orchestrator: boolean }>("/api/v1/stats/capabilities");
 export const getSession = (id: string) => authed<SessionDetail>(`/api/v1/sessions/${id}`);
 
 export async function deployHoneypot(profile_id: string, name: string, host_label: string) {

@@ -6,8 +6,15 @@ from sqlalchemy import func, select
 
 from app.db.models import Event
 from app.security.deps import CurrentOperator, DbSession
+from app.services import orchestrator
 
 router = APIRouter(prefix="/stats", tags=["stats"])
+
+
+@router.get("/capabilities")
+async def capabilities(current: CurrentOperator):
+    """Which optional features are available on this deployment."""
+    return {"orchestrator": orchestrator.available()}
 
 
 @router.get("/summary")

@@ -70,6 +70,12 @@ async def deploy_from_profile(body: HoneypotCreate, current: CurrentOperator, db
             status_code=status.HTTP_400_BAD_REQUEST, detail="profile_id does not exist"
         )
 
+    if not orchestrator.available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Orchestrator is disabled on this host (no Docker socket).",
+        )
+
     enroll_token = secrets.token_urlsafe(32)
     hp = Honeypot(
         name=body.name,
@@ -79,18 +85,22 @@ async def deploy_from_profile(body: HoneypotCreate, current: CurrentOperator, db
         status="unknown",
     )
     db.add(hp)
-    await db.flush()
-    await audit.record(db, operator_id=current.id, action="honeypot.deploy", target=str(hp.id))
-    await db.commit()
-    await db.refresh(hp)
+    await db.flush()  # assign id without committing yet
 
+    # Launch first; only persist the honeypot if the container actually started,
+    # so a failed deploy never leaves an orphan record.
     try:
         container_id = await orchestrator.deploy_honeypot(str(hp.id), enroll_token)
     except Exception as exc:  # noqa: BLE001
+        await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"deploy failed: {exc.__class__.__name__}: {exc}",
         )
+
+    await audit.record(db, operator_id=current.id, action="honeypot.deploy", target=str(hp.id))
+    await db.commit()
+    await db.refresh(hp)
     return {"status": "deploying", "container_id": container_id, "honeypot": _to_out(hp)}
 
 
