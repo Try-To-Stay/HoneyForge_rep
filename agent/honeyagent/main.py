@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import random
 import time
+from datetime import datetime, timezone
 
 from honeyagent.buffer import Buffer
 from honeyagent.config import AgentConfig
@@ -33,6 +35,35 @@ async def _enroll_with_retry(transport: Transport, token: str) -> dict:
         except Exception as exc:  # noqa: BLE001
             log.warning("enroll failed (%s); retry in %ds", exc, delay)
             await asyncio.sleep(delay)
+
+
+def _save_mtls(cfg, mtls: dict) -> str:
+    """Persist CA + client cert/key; return the cert_expires_at string."""
+    os.makedirs(os.path.dirname(cfg.ca_path) or ".", exist_ok=True)
+    for path, content in (
+        (cfg.ca_path, mtls["ca_cert"]),
+        (cfg.client_cert_path, mtls["client_cert"]),
+        (cfg.client_key_path, mtls["client_key"]),
+    ):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+    try:
+        os.chmod(cfg.client_key_path, 0o600)
+    except Exception:  # noqa: BLE001
+        pass
+    return mtls.get("cert_expires_at", "")
+
+
+def _needs_rotation(expires_iso: str, margin_s: int) -> bool:
+    if not expires_iso:
+        return False
+    try:
+        exp = datetime.fromisoformat(expires_iso)
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return False
+    return (exp - datetime.now(timezone.utc)).total_seconds() < margin_s
 
 
 def _build_honeypots(services: list[dict], emit):
@@ -77,6 +108,14 @@ async def run() -> None:
     config = data.get("config", {})
     log.info("enrolled as %s (etag=%s)", data.get("agent_id"), etag)
 
+    # mTLS (MASK-7): if the center issued a client cert, persist it, pin the CA
+    # and switch the transport to mutual TLS for all subsequent requests.
+    cert_expires = ""
+    if cfg.mtls_enabled and data.get("mtls"):
+        cert_expires = _save_mtls(cfg, data["mtls"])
+        await transport.rebuild()
+        log.info("mTLS enabled; client cert expires %s", cert_expires)
+
     masking = config.get("masking") or {}
     # Host-side stealth (MASK-4): adopt an innocuous process name from the profile.
     set_process_name(masking.get("process_name"))
@@ -100,9 +139,20 @@ async def run() -> None:
         await hp.start()
 
     async def sender() -> None:
-        nonlocal etag
+        nonlocal etag, cert_expires
         while True:
             await asyncio.sleep(_next_interval(cfg))
+
+            # Rotate the client cert before it expires (MASK-7).
+            if cfg.mtls_enabled and _needs_rotation(cert_expires, cfg.cert_renew_margin_s):
+                try:
+                    fresh = await transport.rotate(agent_key)
+                    cert_expires = _save_mtls(cfg, fresh)
+                    await transport.rebuild()
+                    log.info("rotated client cert; new expiry %s", cert_expires)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("cert rotation failed: %s", exc)
+
             pending = await buffer.pending(cfg.send_batch)
             ids = [i for i, _ in pending]
             events = [e for _, e in pending]

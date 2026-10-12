@@ -11,13 +11,17 @@ from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
 from app.db.models import Honeypot, Profile
+from app.config import get_settings
 from app.schemas.agent import (
+    ClientCert,
     ConfigPayload,
     EnrollRequest,
     EnrollResponse,
+    RotateResponse,
     TelemetryIn,
     TelemetryResponse,
 )
+from app.security import ca
 from app.security.agent_auth import AgentHoneypot
 from app.security.deps import DbSession
 from app.security.passwords import hash_token
@@ -26,7 +30,20 @@ from app.services.config_etag import compute_etag
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
+settings = get_settings()
 NEXT_POLL_S = 30
+
+
+def _issue_mtls(agent_id: str) -> ClientCert | None:
+    if not settings.mtls_enabled:
+        return None
+    cert_pem, key_pem, expires = ca.issue_client_cert(common_name=agent_id)
+    return ClientCert(
+        ca_cert=ca.ca_cert_pem(),
+        client_cert=cert_pem,
+        client_key=key_pem,
+        cert_expires_at=expires,
+    )
 
 
 async def _profile_config(db: DbSession, hp: Honeypot) -> dict:
@@ -56,6 +73,22 @@ async def enroll(body: EnrollRequest, db: DbSession):
         agent_key=agent_key,
         config=config,
         config_etag=compute_etag(config),
+        mtls=_issue_mtls(str(hp.id)),
+    )
+
+
+@router.post("/rotate", response_model=RotateResponse)
+async def rotate_cert(hp: AgentHoneypot):
+    """Issue a fresh client cert (MASK-7 rotation). Authenticated by agent key;
+    the transport is already mTLS-protected by nginx on this path."""
+    if not settings.mtls_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+    cert_pem, key_pem, expires = ca.issue_client_cert(common_name=str(hp.id))
+    return RotateResponse(
+        ca_cert=ca.ca_cert_pem(),
+        client_cert=cert_pem,
+        client_key=key_pem,
+        cert_expires_at=expires,
     )
 
 

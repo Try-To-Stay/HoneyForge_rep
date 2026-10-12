@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     alert_bruteforce_threshold: int = 5
     alert_window_s: int = 300
 
+    # mTLS (Bonus MASK-7)
+    mtls_enabled: bool = False
+    certs_dir: str = "/certs"
+    client_cert_ttl_min: int = 60
+
     # Orchestrator (Bonus FR-C6): one-button deploy of a honeypot container.
     orchestrator_image: str = "honeyforge_rep-honeypot-low"
     orchestrator_network: str = "honeyforge_rep_honeynet"

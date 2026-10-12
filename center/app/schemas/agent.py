@@ -21,9 +21,19 @@ class ConfigPayload(BaseModel):
     config_etag: str
 
 
+class ClientCert(BaseModel):
+    """mTLS material (MASK-7); present only when mTLS is enabled."""
+
+    ca_cert: str
+    client_cert: str
+    client_key: str
+    cert_expires_at: str
+
+
 class EnrollResponse(ConfigPayload):
     agent_id: uuid.UUID
     agent_key: str
+    mtls: ClientCert | None = None
 
 
 class EventIn(BaseModel):
@@ -54,3 +64,7 @@ class TelemetryResponse(BaseModel):
     accepted: int
     next_poll_s: int
     config_etag: str
+
+
+class RotateResponse(ClientCert):
+    pass

@@ -1,5 +1,12 @@
-"""HTTPS transport to the disguised collector endpoint (MASK-1, MASK-2)."""
+"""HTTPS transport to the disguised collector (MASK-1/MASK-2, and MASK-7 mTLS).
+
+Bootstrap (enroll) uses a plain client. Once the center issues a client cert,
+the transport is rebuilt to pin the CA and present the client cert on every
+request (mutual TLS). Rotation rebuilds it again with the fresh cert.
+"""
 from __future__ import annotations
+
+import os
 
 import httpx
 
@@ -11,13 +18,33 @@ AGENT_KEY_HEADER = "X-Request-Id"
 class Transport:
     def __init__(self, cfg: AgentConfig):
         self._cfg = cfg
-        self._client = httpx.AsyncClient(
-            base_url=cfg.base_url,
-            verify=cfg.tls_verify,
+        self._client = self._build()
+
+    def _build(self) -> httpx.AsyncClient:
+        verify: object = self._cfg.tls_verify
+        cert = None
+        if (
+            self._cfg.mtls_enabled
+            and os.path.exists(self._cfg.ca_path)
+            and os.path.exists(self._cfg.client_cert_path)
+            and os.path.exists(self._cfg.client_key_path)
+        ):
+            # Pin the CA (not system trust) and present the client cert.
+            verify = self._cfg.ca_path
+            cert = (self._cfg.client_cert_path, self._cfg.client_key_path)
+        return httpx.AsyncClient(
+            base_url=self._cfg.base_url,
+            verify=verify,
+            cert=cert,
             timeout=10.0,
-            # A browser-ish UA so the channel blends in with ordinary web traffic.
             headers={"User-Agent": "Mozilla/5.0 (compatible; AssetSync/3.1)"},
         )
+
+    async def rebuild(self) -> None:
+        """Recreate the client (e.g. after certs are written or rotated)."""
+        old = self._client
+        self._client = self._build()
+        await old.aclose()
 
     async def enroll(self, enroll_token: str) -> dict:
         resp = await self._client.post(
@@ -29,6 +56,13 @@ class Transport:
     async def get_config(self, agent_key: str) -> dict:
         resp = await self._client.get(
             self._cfg.path_config, headers={AGENT_KEY_HEADER: agent_key}
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def rotate(self, agent_key: str) -> dict:
+        resp = await self._client.post(
+            self._cfg.path_renew, headers={AGENT_KEY_HEADER: agent_key}
         )
         resp.raise_for_status()
         return resp.json()
