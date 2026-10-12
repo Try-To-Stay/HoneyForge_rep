@@ -1,0 +1,41 @@
+# High-interaction overlay (Bonus FR-A5). Adds the honeypot-high host, where
+# the attacker's commands run FOR REAL inside disposable, network-isolated
+# sandbox containers (auto-reset on disconnect).
+#
+# LAB-ONLY. It mounts the Docker socket on the honeypot host and spawns sandbox
+# containers. Safety is by isolation: each session gets a throwaway
+# `--network none` container with CPU/RAM/PID limits and --cap-drop ALL,
+# destroyed on exit. The attacker is in the sandbox, never in the agent
+# container, and the fake-SSH port is published only on 127.0.0.1 (reach it via
+# an SSH tunnel). Residual risk: a container breakout — acceptable on an
+# isolated stand, your call on a shared host.
+#
+# Combine with dev or prod, and set SEED_HIGH_ENROLL_TOKEN in .env:
+#   dev:  docker compose -f docker-compose.yml -f docker-compose.override.yml \
+#                        -f docker-compose.high.yml up -d
+#   prod: docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#                        -f docker-compose.high.yml up -d
+
+services:
+  honeypot-high:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile.high
+    depends_on:
+      nginx:
+        condition: service_started
+    environment:
+      HONEYFORGE_BASE_URL: https://nginx:8443
+      HONEYFORGE_ENROLL_TOKEN: ${SEED_HIGH_ENROLL_TOKEN:-dev-high-enroll-token}
+      AGENT_TLS_VERIFY: "false"
+      AGENT_BEACON_INTERVAL_S: "10"
+    volumes:
+      - agentdata_high:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "127.0.0.1:2223:22"   # high-interaction fake-SSH (localhost only)
+    networks: [honeynet]
+    restart: unless-stopped
+
+volumes:
+  agentdata_high:

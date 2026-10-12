@@ -6,6 +6,9 @@
 # - center source bind-mount + hot reload, and the Docker socket so the
 #   orchestrator (one-button deploy) works locally;
 # - honeypot ports published to the host so you can attack them from localhost.
+#
+# High-interaction is a separate overlay — docker-compose.high.yml — so it can
+# be enabled for either dev or prod (lab-only; see that file).
 
 services:
   center:
@@ -24,28 +27,3 @@ services:
     ports:
       - "2222:22"      # fake-SSH
       - "8081:80"      # fake-HTTP admin
-
-  # High-interaction honeypot host (LAB-ONLY): real commands run in disposable,
-  # network-isolated sandbox containers. Needs the Docker socket. Never enable
-  # on a shared/production host.
-  honeypot-high:
-    build:
-      context: .
-      dockerfile: agent/Dockerfile.high
-    depends_on:
-      nginx:
-        condition: service_started
-    environment:
-      HONEYFORGE_BASE_URL: https://nginx:8443
-      HONEYFORGE_ENROLL_TOKEN: ${SEED_HIGH_ENROLL_TOKEN:-dev-high-enroll-token}
-      AGENT_TLS_VERIFY: "false"
-      AGENT_BEACON_INTERVAL_S: "10"
-    volumes:
-      - agentdata_high:/data
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "2223:22"      # high-interaction fake-SSH
-    networks: [honeynet]
-
-volumes:
-  agentdata_high:
