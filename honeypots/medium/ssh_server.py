@@ -154,7 +154,7 @@ def _make_shell_handler(emit: EmitFn, port: int):
                     process.stdout.write("logout\r\n")
                     break
                 if out:
-                    process.stdout.write(out + "\r\n")
+                    process.stdout.write(out.replace("\r\n", "\n").replace("\n", "\r\n") + "\r\n")
         finally:
             process.exit(0)
 
