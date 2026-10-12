@@ -31,6 +31,9 @@ log = logging.getLogger("honeypot.high")
 SANDBOX_IMAGE = os.getenv("HIGH_SANDBOX_IMAGE", "alpine:3.20")
 REC_DIR = os.getenv("HIGH_RECORDINGS_DIR", "/data/recordings")
 CMD_TIMEOUT_S = int(os.getenv("HIGH_CMD_TIMEOUT_S", "15"))
+# Cap concurrent sandboxes so internet scanners can't fork-bomb containers.
+MAX_SESSIONS = int(os.getenv("HIGH_MAX_SESSIONS", "5"))
+_sem = asyncio.Semaphore(MAX_SESSIONS)
 
 
 async def _run_capture(*args: str, timeout: int = CMD_TIMEOUT_S) -> bytes:
@@ -76,7 +79,16 @@ def _make_handler(emit, port: int):
         sid = info.get("session_id") or str(uuid.uuid4())
         cname = f"hf-sbx-{uuid.uuid4().hex[:10]}"
 
+        # Refuse immediately if we're at the concurrent-sandbox cap.
+        try:
+            await asyncio.wait_for(_sem.acquire(), timeout=0.05)
+        except asyncio.TimeoutError:
+            process.stdout.write("Unable to allocate a session, try again later.\r\n")
+            process.exit(1)
+            return
+
         if not await _spawn_sandbox(cname):
+            _sem.release()
             process.stdout.write("Unable to allocate a session, try again later.\r\n")
             process.exit(1)
             return
@@ -123,6 +135,7 @@ def _make_handler(emit, port: int):
             except Exception:  # noqa: BLE001
                 pass
             await _destroy_sandbox(cname)  # auto-reset
+            _sem.release()
             await emit(
                 make_event(
                     "session_recording",

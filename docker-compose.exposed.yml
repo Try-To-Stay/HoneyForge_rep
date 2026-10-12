@@ -1,24 +1,25 @@
-# Internet-facing honeypots (real-honeypot mode) — PASSIVE services only.
+# ALL honeypots internet-facing (0.0.0.0) — real-honeypot mode.
+# Only for an isolated stand you own, with consent. There is typically no host
+# firewall, so these become reachable from the internet immediately.
 #
-# Exposes to 0.0.0.0 (the internet) only honeypots that store no data and
-# execute nothing: fake-MySQL (login + query capture, no real DB) and the Low
-# FTP/telnet banners, on their real ports. fake-SSH, fake-HTTP and especially
-# High-interaction stay bound to localhost (see prod/high overlays) because
-# they either collide with real services or execute real commands.
-#
-# Use on an isolated/owned stand with the owner's consent:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 #                  -f docker-compose.high.yml -f docker-compose.exposed.yml up -d
 #
-# Note: there is no host firewall here, so these ports become reachable from
-# the internet immediately. Real scanners will hit them within hours.
+# Ports: fake-SSH is on 2222 (22 is the host's real sshd) and fake-HTTP on 8888
+# (80 is taken on the host). High-interaction executes real commands in a
+# disposable, network-isolated sandbox, capped by HIGH_MAX_SESSIONS — exposing
+# it is higher risk (container breakout); do it only on an isolated stand.
 
 services:
   honeypot-low:
     ports:
-      - "0.0.0.0:21:21"      # FTP banner
-      - "0.0.0.0:23:23"      # telnet banner
-
+      - "0.0.0.0:21:21"        # FTP banner
+      - "0.0.0.0:23:23"        # telnet banner
   honeypot-medium:
     ports:
-      - "0.0.0.0:3306:3306"  # fake-MySQL on the real MySQL port
+      - "0.0.0.0:2222:22"      # fake-SSH
+      - "0.0.0.0:8888:80"      # fake-HTTP admin
+      - "0.0.0.0:3306:3306"    # fake-MySQL
+  honeypot-high:
+    ports:
+      - "0.0.0.0:2223:22"      # High-interaction fake-SSH (real sandboxed shell)

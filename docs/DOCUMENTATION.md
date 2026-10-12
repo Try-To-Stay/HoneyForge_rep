@@ -161,6 +161,8 @@ Dashboard: `http://localhost:8080` · логин `admin` · пароль из `.
 | **Prod / demo** | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` | Наружу только дашборд; ловушки внутренние; оркестратор выключен |
 | **+ High-interaction** | добавить `-f docker-compose.high.yml` | Ловушка с реальной изолированной песочницей (нужен `SEED_HIGH_ENROLL_TOKEN`) |
 | **+ mTLS** | добавить `-f docker-compose.mtls.yml` | Взаимный TLS с pinning и ротацией на агентском канале |
+| **+ локальные порты** | добавить `-f docker-compose.local.yml` | Порты ловушек на `127.0.0.1` (доступ через SSH-туннель) |
+| **+ наружу (боевой)** | добавить `-f docker-compose.exposed.yml` | Все ловушки на `0.0.0.0` (интернет): SSH 2222, HTTP 8888, MySQL 3306, FTP 21, telnet 23, High 2223. Только для изолированного стенда |
 
 Пример (прод + High):
 ```bash

@@ -1,0 +1,19 @@
+# Local-only honeypot ports (127.0.0.1) — reach them via SSH tunnel.
+# Use INSTEAD of docker-compose.exposed.yml (they bind the same container ports):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#                  -f docker-compose.high.yml -f docker-compose.local.yml up -d
+
+services:
+  honeypot-low:
+    ports:
+      - "127.0.0.1:2021:21"
+      - "127.0.0.1:2023:23"
+      - "127.0.0.1:23306:3306"
+  honeypot-medium:
+    ports:
+      - "127.0.0.1:2222:22"
+      - "127.0.0.1:18081:80"
+      - "127.0.0.1:13306:3306"
+  honeypot-high:
+    ports:
+      - "127.0.0.1:2223:22"

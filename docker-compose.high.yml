@@ -32,8 +32,7 @@ services:
     volumes:
       - agentdata_high:/data
       - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "127.0.0.1:2223:22"   # high-interaction fake-SSH (localhost only)
+    # Host port is provided by the local or exposed overlay (not here).
     networks: [honeynet]
     restart: unless-stopped
 
