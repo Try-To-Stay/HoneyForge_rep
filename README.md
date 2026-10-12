@@ -14,6 +14,11 @@
 ## Документация
 
 - [docs/DESIGN.md](docs/DESIGN.md) — технический дизайн: стек, архитектура, схема БД, API-контракты.
+- [docs/architecture.md](docs/architecture.md) — схема архитектуры и поток «атака → событие» (Mermaid).
+- [docs/db-schema.md](docs/db-schema.md) — ER-схема БД (Mermaid).
+- [docs/presentation.md](docs/presentation.md) — презентация к защите.
+- [docs/DEPLOY.md](docs/DEPLOY.md) — развёртывание на сервере (demo-режим).
+- [docs/TEAM.md](docs/TEAM.md) — как это работает и как «атаковать» (для команды).
 - [plan for this shit](<plan for this shit>) — исходный план спринтов и карта требований.
 
 ## Статус
