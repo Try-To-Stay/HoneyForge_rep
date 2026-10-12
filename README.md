@@ -13,6 +13,7 @@
 
 ## Документация
 
+- [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) — **полная документация** (от «что это» до гайда по использованию).
 - [docs/DESIGN.md](docs/DESIGN.md) — технический дизайн: стек, архитектура, схема БД, API-контракты.
 - [docs/architecture.md](docs/architecture.md) — схема архитектуры и поток «атака → событие» (Mermaid).
 - [docs/db-schema.md](docs/db-schema.md) — ER-схема БД (Mermaid).
