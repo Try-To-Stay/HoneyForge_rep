@@ -1,0 +1,28 @@
+# mTLS overlay (MASK-7). Enables mutual TLS on the agent channel.
+#
+# Local demo (with dev conveniences):
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml \
+#                  -f docker-compose.mtls.yml up -d --build
+#
+# The center gets the certs volume (to sign per-agent client certs with the CA),
+# nginx swaps in the mTLS collector config, and the agents turn on mTLS (they
+# receive the CA + client cert at enrollment and rotate it before expiry).
+
+services:
+  center:
+    environment:
+      MTLS_ENABLED: "true"
+    volumes:
+      - certs:/certs:ro
+
+  nginx:
+    volumes:
+      - ./nginx/sites-mtls/public.conf:/etc/nginx/conf.d/public.conf:ro
+
+  honeypot-low:
+    environment:
+      MTLS_ENABLED: "true"
+
+  honeypot-medium:
+    environment:
+      MTLS_ENABLED: "true"
