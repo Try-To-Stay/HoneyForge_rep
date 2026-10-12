@@ -58,7 +58,7 @@ async def _publish(redis, alert: Alert) -> None:
         pass
 
 
-async def evaluate(db: AsyncSession, redis, hp: Honeypot, events: list[EventIn]) -> None:
+async def evaluate(db: AsyncSession, redis, hp: Honeypot, events: list[EventIn]) -> list[Alert]:
     now = datetime.now(timezone.utc)
     window_start = now - timedelta(seconds=settings.alert_window_s)
     created: list[Alert] = []
@@ -108,3 +108,4 @@ async def evaluate(db: AsyncSession, redis, hp: Honeypot, events: list[EventIn])
         await db.flush()
         for alert in created:
             await _publish(redis, alert)
+    return created

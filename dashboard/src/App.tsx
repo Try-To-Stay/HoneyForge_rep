@@ -2,14 +2,20 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   Alert,
   AttackEvent,
+  Attacker,
+  DeceptionAction,
   Honeypot,
   Profile,
   SessionDetail,
   Summary,
+  Technique,
   deployHoneypot,
   downloadIocs,
   getAlerts,
+  getAttacker,
+  getAttackers,
   getCapabilities,
+  getDeception,
   getEvents,
   getHoneypots,
   getProfiles,
@@ -66,7 +72,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [events, setEvents] = useState<AttackEvent[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [attackers, setAttackers] = useState<Attacker[]>([]);
+  const [deception, setDeception] = useState<DeceptionAction[]>([]);
+  const [attacker, setAttacker] = useState<(Attacker & { techniques: Technique[] }) | null>(null);
   const [live, setLive] = useState(false);
+
+  const openAttacker = useCallback(async (ip: string) => {
+    try { setAttacker(await getAttacker(ip)); } catch { /* ignore */ }
+  }, []);
   const [filterHp, setFilterHp] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterIp, setFilterIp] = useState("");
@@ -97,8 +110,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     let active = true;
     const tick = async () => {
       try {
-        const [hps, sum, al] = await Promise.all([getHoneypots(), getSummary(), getAlerts()]);
-        if (active) { setHoneypots(hps); setSummary(sum); setAlerts(al); }
+        const [hps, sum, al, att, dec] = await Promise.all([
+          getHoneypots(), getSummary(), getAlerts(), getAttackers(), getDeception(),
+        ]);
+        if (active) { setHoneypots(hps); setSummary(sum); setAlerts(al); setAttackers(att); setDeception(dec); }
       } catch { /* ignore transient */ }
     };
     tick();
@@ -163,17 +178,36 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <div className="hp-top">
                 <span className={`dot ${h.status}`} />
                 <b>{h.name}</b>
+                {h.auto_deployed && <span className="hp-tag auto">auto</span>}
+                {(h.exposure_score ?? 0) > 0 && <span className="hp-tag exposed">⚠ exposed</span>}
               </div>
               <div className="muted small">{h.host_label ?? "—"} · {h.status}</div>
               <div className="muted small">last seen: {fmt(h.last_seen_at)}</div>
             </div>
           ))}
 
-          {summary && summary.top_sources.length > 0 && (
+          {attackers.length > 0 && (
             <>
-              <h2>Top sources</h2>
-              {summary.top_sources.map((s) => (
-                <div key={s.source_ip} className="muted small">{s.source_ip} — {s.count}</div>
+              <h2>Attackers <span className="muted small">(ATT&CK)</span></h2>
+              {attackers.slice(0, 6).map((a) => (
+                <div key={a.source_ip} className="atk-card" onClick={() => openAttacker(a.source_ip)}>
+                  <div className="atk-top">
+                    <span className="mono">{a.source_ip}</span>
+                    <span className={`score s${Math.min(100, a.threat_score) >= 70 ? "hi" : a.threat_score >= 40 ? "md" : "lo"}`}>{a.threat_score}</span>
+                  </div>
+                  <div className="muted small">{a.honeypots_touched} honeypot(s) · {a.techniques} techniques · {a.events} events</div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {deception.length > 0 && (
+            <>
+              <h2>Deception</h2>
+              {deception.slice(0, 4).map((d) => (
+                <div key={d.id} className="muted small">
+                  🪤 {d.action === "deploy_decoy" ? `decoy ${String(d.detail.decoy ?? "")} vs ${d.source_ip ?? "?"}` : d.action}
+                </div>
               ))}
             </>
           )}
@@ -225,7 +259,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onClick={() => ev.session_id && openSession(ev.session_id)}
                 >
                   <td className="mono">{fmtTime(ev.occurred_at)}</td>
-                  <td><span className={`tag t-${ev.event_type}`}>{ev.event_type}</span></td>
+                  <td>
+                    <span className={`tag t-${ev.event_type}`}>{ev.event_type}</span>
+                    {ev.technique && <span className="attck" title="MITRE ATT&CK">{ev.technique}</span>}
+                  </td>
                   <td>{hpName[ev.honeypot_id] ?? ev.honeypot_id.slice(0, 8)}</td>
                   <td className="mono">{ev.source_ip ?? "—"}{ev.source_port ? `:${ev.source_port}` : ""}</td>
                   <td className="mono">{ev.protocol ?? ""}/{ev.dest_port ?? "—"}</td>
@@ -239,6 +276,44 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       </div>
 
       {session && <SessionModal session={session} hpName={hpName} onClose={() => setSession(null)} />}
+      {attacker && <AttackerModal attacker={attacker} onClose={() => setAttacker(null)} />}
+    </div>
+  );
+}
+
+function AttackerModal({
+  attacker,
+  onClose,
+}: {
+  attacker: Attacker & { techniques: Technique[] };
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <b className="mono">{attacker.source_ip}</b>
+          <button className="ghost" onClick={onClose}>close</button>
+        </div>
+        <div className="muted small">
+          threat score {attacker.threat_score} · {attacker.honeypots_touched} honeypot(s) ·
+          {" "}{attacker.events} events · first {fmt(attacker.first_seen)}
+        </div>
+        <h3>MITRE ATT&CK techniques</h3>
+        <table className="events">
+          <tbody>
+            {attacker.techniques.map((t) => (
+              <tr key={t.id}>
+                <td className="mono">{t.id}</td>
+                <td>{t.name}</td>
+                <td className="muted small">{t.tactic}</td>
+                <td className="muted small">×{t.count}</td>
+              </tr>
+            ))}
+            {attacker.techniques.length === 0 && <tr><td className="muted">none</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

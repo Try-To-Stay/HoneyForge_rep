@@ -25,7 +25,7 @@ from app.security import ca
 from app.security.agent_auth import AgentHoneypot
 from app.security.deps import DbSession
 from app.security.passwords import hash_token
-from app.services import alerts, telemetry
+from app.services import alerts, deception, exposure, telemetry
 from app.services.config_etag import compute_etag
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -47,8 +47,16 @@ def _issue_mtls(agent_id: str) -> ClientCert | None:
 
 
 async def _profile_config(db: DbSession, hp: Honeypot) -> dict:
+    """Effective config: the profile with the honeypot's current disguise applied
+    (self-defense re-masking, feature #4). Changing the disguise changes the etag,
+    so the agent refetches and re-applies its process name."""
     profile = await db.get(Profile, hp.profile_id)
-    return profile.config if profile else {}
+    config = dict(profile.config) if profile else {}
+    if hp.disguise_name:
+        masking = dict(config.get("masking") or {})
+        masking["process_name"] = hp.disguise_name
+        config["masking"] = masking
+    return config
 
 
 @router.post("/enroll", response_model=EnrollResponse)
@@ -104,7 +112,9 @@ async def get_config(hp: AgentHoneypot, db: DbSession):
 async def post_telemetry(body: TelemetryIn, hp: AgentHoneypot, db: DbSession, request: Request):
     redis = getattr(request.app.state, "redis", None)
     accepted = await telemetry.ingest_events(db, redis, hp, body.events)
-    await alerts.evaluate(db, redis, hp, body.events)
+    new_alerts = await alerts.evaluate(db, redis, hp, body.events)
+    await exposure.evaluate(db, redis, hp, body.events)      # feature #4
+    await deception.evaluate(db, redis, new_alerts)          # feature #3
     await telemetry.mark_seen(db, hp)
     await db.commit()
 

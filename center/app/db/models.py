@@ -67,6 +67,11 @@ class Honeypot(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="unknown")
     last_seen_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
     host_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Self-defense (feature #4): exposure risk and the current rotated disguise.
+    exposure_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    disguise_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Marks honeypots auto-deployed by the deception engine (feature #3).
+    auto_deployed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
 
     profile: Mapped[Profile] = relationship(back_populates="honeypots")
@@ -103,6 +108,8 @@ class Event(Base):
         ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True
     )
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # MITRE ATT&CK technique id inferred at ingest (feature #2).
+    technique: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     occurred_at: Mapped[datetime] = mapped_column(TS, nullable=False)
     received_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
     # Idempotency for buffered re-delivery (FR-A4); unique so retries don't dup.
@@ -167,6 +174,22 @@ class Alert(Base):
     severity: Mapped[str] = mapped_column(String(16), nullable=False, default="high")
     message: Mapped[str] = mapped_column(String(255), nullable=False)
     event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
+
+
+class DeceptionAction(Base):
+    __tablename__ = "deception_actions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)  # deploy_decoy|rotate_disguise
+    source_ip: Mapped[str | None] = mapped_column(INET, nullable=True, index=True)
+    honeypot_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("honeypots.id", ondelete="SET NULL"), nullable=True
+    )
+    alert_id: Mapped[int | None] = mapped_column(
+        ForeignKey("alerts.id", ondelete="SET NULL"), nullable=True
+    )
+    detail: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
 
 

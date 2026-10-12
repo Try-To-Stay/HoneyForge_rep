@@ -19,6 +19,8 @@ class HoneypotOut(BaseModel):
     status: str
     last_seen_at: datetime | None
     host_label: str | None
+    exposure_score: int = 0
+    auto_deployed: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

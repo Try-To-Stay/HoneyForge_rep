@@ -9,6 +9,7 @@ from app.api.operator import (
     events,
     export,
     honeypots,
+    intel,
     profiles,
     sessions,
     stats,
@@ -24,3 +25,4 @@ operator_router.include_router(sessions.router)
 operator_router.include_router(stats.router)
 operator_router.include_router(alerts.router)
 operator_router.include_router(export.router)
+operator_router.include_router(intel.router)
