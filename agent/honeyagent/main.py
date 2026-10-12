@@ -16,6 +16,7 @@ from honeyagent.buffer import Buffer
 from honeyagent.config import AgentConfig
 from honeyagent.stealth import set_process_name
 from honeyagent.transport import Transport
+from honeypots.high.ssh_server import HighSSHHoneypot
 from honeypots.low.listener import LowHoneypot
 from honeypots.medium.http_admin import HTTPHoneypot
 from honeypots.medium.ssh_server import SSHHoneypot
@@ -47,6 +48,8 @@ def _build_honeypots(services: list[dict], emit):
     for svc in services:
         if svc.get("type") == "ssh":
             honeypots.append(SSHHoneypot(svc, emit))
+        elif svc.get("type") == "ssh_high":
+            honeypots.append(HighSSHHoneypot(svc, emit))
         elif svc.get("type") == "http":
             honeypots.append(HTTPHoneypot(svc, emit))
     return honeypots
