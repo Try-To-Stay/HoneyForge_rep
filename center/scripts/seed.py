@@ -61,6 +61,7 @@ MEDIUM_PROFILE = {
                 "admin_path": "/admin",
                 "login_template": "generic",
             },
+            {"type": "mysql", "port": 3306, "banner": "5.7.42-log"},
         ],
         "logging": {"capture_commands": True, "mask_passwords": True},
         "masking": {"beacon_jitter_s": [8, 15], "process_name": "systemd-timesyncd"},
