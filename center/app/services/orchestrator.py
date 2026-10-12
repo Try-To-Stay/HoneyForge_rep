@@ -7,10 +7,18 @@ socket mounted into the center. Blocking Docker calls run in a thread.
 from __future__ import annotations
 
 import asyncio
+import os
 
 from app.config import get_settings
 
 settings = get_settings()
+
+DOCKER_SOCK = "/var/run/docker.sock"
+
+
+def available() -> bool:
+    """True if one-button deploy can work (Docker socket is mounted)."""
+    return os.path.exists(DOCKER_SOCK)
 
 
 def _deploy_sync(honeypot_id: str, enroll_token: str, name: str) -> str:
