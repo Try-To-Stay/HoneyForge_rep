@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import AuthAttempt, Event, Honeypot, Session
 from app.schemas.agent import EventIn
 from app.security.passwords import hash_token
+from app.services import mitre
 
 # Redis channels consumed by the realtime layer.
 CHANNEL_ALL = "events:all"
@@ -83,6 +84,7 @@ async def _publish(redis, hp: Honeypot, row: Event, occurred: datetime) -> None:
                 "dest_port": row.dest_port,
                 "protocol": row.protocol,
                 "severity": row.severity,
+                "technique": row.technique,
                 "payload": row.payload,
                 "occurred_at": occurred.isoformat(),
             },
@@ -169,6 +171,7 @@ async def ingest_events(
             severity=ev.severity,
             session_id=ev.session_id,
             payload=payload,
+            technique=mitre.classify(ev.event_type, payload),
             occurred_at=occurred,
             dedup_key=ev.dedup_key,
         )

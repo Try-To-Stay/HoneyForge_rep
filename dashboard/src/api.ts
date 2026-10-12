@@ -5,13 +5,41 @@ export interface Honeypot {
   status: string;
   last_seen_at: string | null;
   host_label: string | null;
+  exposure_score?: number;
+  auto_deployed?: boolean;
   created_at: string;
+}
+
+export interface Attacker {
+  source_ip: string;
+  events: number;
+  honeypots_touched: number;
+  techniques: number;
+  first_seen: string | null;
+  last_seen: string | null;
+  threat_score: number;
+}
+
+export interface Technique { id: string; name: string; tactic: string; count: number }
+
+export interface AttackerDetail extends Attacker {
+  techniques_list?: Technique[];
+}
+
+export interface DeceptionAction {
+  id: number;
+  action: string;
+  source_ip: string | null;
+  honeypot_id: string | null;
+  detail: Record<string, unknown>;
+  created_at: string | null;
 }
 
 export interface AttackEvent {
   id: number;
   honeypot_id: string;
   session_id?: string | null;
+  technique?: string | null;
   event_type: string;
   source_ip: string | null;
   source_port: number | null;
@@ -120,6 +148,10 @@ export interface Alert {
 }
 
 export const getAlerts = () => authed<Alert[]>("/api/v1/alerts");
+export const getAttackers = () => authed<Attacker[]>("/api/v1/attackers");
+export const getAttacker = (ip: string) =>
+  authed<Attacker & { techniques: Technique[] }>(`/api/v1/attackers/${ip}`);
+export const getDeception = () => authed<DeceptionAction[]>("/api/v1/deception");
 
 export async function downloadIocs(format: "csv" | "stix") {
   const resp = await fetch(`/api/v1/export/iocs?format=${format}`, {

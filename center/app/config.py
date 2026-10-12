@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     certs_dir: str = "/certs"
     client_cert_ttl_min: int = 60
 
+    # Adaptive deception ladder (feature #3)
+    deception_enabled: bool = True
+    deception_max_decoys: int = 3       # cap on auto-deployed decoys
+    deception_window_s: int = 1800      # don't re-deploy for the same source within this
+
+    # Self-defense / exposure detection (feature #4)
+    selfdefense_enabled: bool = True
+    selfdefense_probe_threshold: int = 3   # recon indicators before a probe alert
+    selfdefense_auto_rotate: bool = True   # re-mask (rotate process name) on detection
+
     # Orchestrator (Bonus FR-C6): one-button deploy of a honeypot container.
     orchestrator_image: str = "honeyforge_rep-honeypot-low"
     orchestrator_network: str = "honeyforge_rep_honeynet"

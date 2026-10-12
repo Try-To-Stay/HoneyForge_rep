@@ -101,6 +101,20 @@ aside h2, main h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 
 .dot.offline { background: var(--offline); }
 .dot.unknown { background: var(--unknown); }
 
+.hp-tag { font-size: 10px; padding: 0 6px; border-radius: 4px; margin-left: auto; }
+.hp-tag.auto { background: #1d3a5a; color: #58a6ff; }
+.hp-tag.exposed { background: #5a1d1d; color: #f85149; margin-left: 6px; }
+
+.atk-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+.atk-card:hover { border-color: var(--accent); }
+.atk-top { display: flex; align-items: center; justify-content: space-between; }
+.score { font-weight: 700; font-size: 12px; padding: 0 7px; border-radius: 999px; }
+.score.shi { background: var(--offline); color: #1a1a1a; }
+.score.smd { background: var(--accent); color: #1a1a1a; }
+.score.slo { background: var(--border); color: var(--text); }
+
+.attck { font-family: ui-monospace, monospace; font-size: 10px; color: #a371f7; border: 1px solid #a371f755; border-radius: 4px; padding: 0 5px; margin-left: 6px; }
+
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 .deploy { display: flex; flex-direction: column; gap: 6px; }

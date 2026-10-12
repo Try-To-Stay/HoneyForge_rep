@@ -21,6 +21,7 @@ class EventOut(BaseModel):
     dest_port: int | None
     protocol: str | None
     severity: str
+    technique: str | None = None
     session_id: uuid.UUID | None
     payload: dict
     occurred_at: datetime
