@@ -24,7 +24,7 @@ import uuid
 import asyncssh
 
 from honeypots.common.events import make_event
-from honeypots.medium.ssh_server import _SESSIONS, _HoneySSHServer
+from honeypots.medium.ssh_server import _SESSIONS, _HoneySSHServer, load_or_create_host_key
 
 log = logging.getLogger("honeypot.high")
 
@@ -161,7 +161,7 @@ class HighSSHHoneypot:
     async def start(self) -> None:
         port = int(self._service.get("port", 22))
         creds = self._service.get("fake_credentials", [{"username": "root", "password": "toor"}])
-        host_key = asyncssh.generate_private_key("ssh-rsa", key_size=2048)
+        host_key = load_or_create_host_key("/data/ssh_host_key_high")
         self._server = await asyncssh.create_server(
             lambda: _HoneySSHServer(self._emit, creds, port),
             "0.0.0.0",

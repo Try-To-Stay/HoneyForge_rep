@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import random
 import uuid
 from typing import Awaitable, Callable
@@ -20,6 +21,23 @@ from honeypots.medium.fake_fs import CANARY_PATHS, CANARY_TOKEN, FakeShell
 log = logging.getLogger("honeypot.ssh")
 
 EmitFn = Callable[[dict], Awaitable[None]]
+
+
+def load_or_create_host_key(path: str = "/data/ssh_host_key"):
+    """Persistent SSH host key so the fingerprint stays stable across restarts
+    (a real server never changes its host key — and it stops client warnings)."""
+    try:
+        if os.path.exists(path):
+            return asyncssh.read_private_key(path)
+    except Exception:  # noqa: BLE001 - regenerate on any read error
+        pass
+    key = asyncssh.generate_private_key("ssh-rsa", key_size=2048)
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        key.write_private_key(path)
+    except Exception:  # noqa: BLE001 - fall back to an ephemeral key
+        pass
+    return key
 
 # Per-connection session info keyed by peername (ip, port).
 _SESSIONS: dict[tuple, dict] = {}
@@ -170,7 +188,7 @@ class SSHHoneypot:
     async def start(self) -> None:
         port = int(self._service.get("port", 22))
         creds = self._service.get("fake_credentials", [{"username": "admin", "password": "admin123"}])
-        host_key = asyncssh.generate_private_key("ssh-rsa", key_size=2048)
+        host_key = load_or_create_host_key("/data/ssh_host_key")
 
         self._server = await asyncssh.create_server(
             lambda: _HoneySSHServer(self._emit, creds, port),
