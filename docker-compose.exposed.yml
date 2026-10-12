@@ -1,0 +1,24 @@
+# Internet-facing honeypots (real-honeypot mode) — PASSIVE services only.
+#
+# Exposes to 0.0.0.0 (the internet) only honeypots that store no data and
+# execute nothing: fake-MySQL (login + query capture, no real DB) and the Low
+# FTP/telnet banners, on their real ports. fake-SSH, fake-HTTP and especially
+# High-interaction stay bound to localhost (see prod/high overlays) because
+# they either collide with real services or execute real commands.
+#
+# Use on an isolated/owned stand with the owner's consent:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#                  -f docker-compose.high.yml -f docker-compose.exposed.yml up -d
+#
+# Note: there is no host firewall here, so these ports become reachable from
+# the internet immediately. Real scanners will hit them within hours.
+
+services:
+  honeypot-low:
+    ports:
+      - "0.0.0.0:21:21"      # FTP banner
+      - "0.0.0.0:23:23"      # telnet banner
+
+  honeypot-medium:
+    ports:
+      - "0.0.0.0:3306:3306"  # fake-MySQL on the real MySQL port
