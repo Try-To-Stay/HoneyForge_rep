@@ -27,3 +27,4 @@ services:
     ports:
       - "2222:22"      # fake-SSH
       - "8081:80"      # fake-HTTP admin
+      - "13306:3306"   # fake-MySQL

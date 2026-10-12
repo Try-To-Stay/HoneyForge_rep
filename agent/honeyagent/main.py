@@ -21,6 +21,7 @@ from honeyagent.transport import Transport
 from honeypots.high.ssh_server import HighSSHHoneypot
 from honeypots.low.listener import LowHoneypot
 from honeypots.medium.http_admin import HTTPHoneypot
+from honeypots.medium.mysql_server import MySQLHoneypot
 from honeypots.medium.ssh_server import SSHHoneypot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -83,6 +84,8 @@ def _build_honeypots(services: list[dict], emit):
             honeypots.append(HighSSHHoneypot(svc, emit))
         elif svc.get("type") == "http":
             honeypots.append(HTTPHoneypot(svc, emit))
+        elif svc.get("type") == "mysql":
+            honeypots.append(MySQLHoneypot(svc, emit))
     return honeypots
 
 
