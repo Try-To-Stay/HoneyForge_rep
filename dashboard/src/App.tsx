@@ -159,15 +159,32 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="app">
       <header>
-        <strong>HoneyForge</strong>
+        <span className="brand"><span className="brand-mark">🍯</span> HoneyForge</span>
         <span className={`live ${live ? "on" : "off"}`}>{live ? "● live" : "○ offline"}</span>
-        {summary && <span className="muted">{summary.total_events} events</span>}
-        {alerts.length > 0 && <span className="alert-count">⚠ {alerts.length} alerts</span>}
         <div className="spacer" />
         <button className="ghost" onClick={() => downloadIocs("csv").catch(() => {})}>Export CSV</button>
         <button className="ghost" onClick={() => downloadIocs("stix").catch(() => {})}>Export STIX</button>
         <button className="ghost" onClick={onLogout}>Logout</button>
       </header>
+
+      <div className="kpis">
+        <div className="kpi">
+          <span className="kpi-num">{honeypots.filter((h) => h.status === "online").length}<span className="kpi-sub">/{honeypots.length}</span></span>
+          <span className="kpi-lbl">honeypots online</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-num">{summary?.total_events ?? 0}</span>
+          <span className="kpi-lbl">events</span>
+        </div>
+        <div className={`kpi ${alerts.length ? "danger" : ""}`}>
+          <span className="kpi-num">{alerts.length}</span>
+          <span className="kpi-lbl">alerts</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-num">{attackers.length}</span>
+          <span className="kpi-lbl">attackers</span>
+        </div>
+      </div>
 
       <div className="grid">
         <aside>

@@ -63,11 +63,29 @@ header {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px 18px;
-  background: var(--panel);
+  padding: 12px 20px;
+  background: linear-gradient(180deg, #1b222c 0%, var(--panel) 100%);
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
-header strong { color: var(--accent); font-size: 16px; }
+.brand { color: var(--accent); font-size: 17px; font-weight: 700; letter-spacing: 0.2px; display: flex; align-items: center; gap: 8px; }
+.brand-mark { filter: drop-shadow(0 0 6px rgba(240,180,41,0.5)); }
+
+/* KPI row */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 16px 16px 0; }
+.kpi {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.kpi-num { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.kpi-sub { font-size: 14px; color: var(--muted); font-weight: 500; }
+.kpi-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.kpi.danger { border-color: #f8514955; background: rgba(248,81,73,0.08); }
+.kpi.danger .kpi-num { color: var(--offline); }
+
 .live.on { color: var(--online); }
 .live.off { color: var(--muted); }
 .alert-count { color: var(--offline); font-weight: 600; }
@@ -90,11 +108,12 @@ aside h2, main h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 
 .hp-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 12px;
   cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
-.hp-card:hover { border-color: var(--accent); }
+.hp-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.35); }
 .hp-top { display: flex; align-items: center; gap: 8px; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--unknown); }
 .dot.online { background: var(--online); box-shadow: 0 0 6px var(--online); }
@@ -151,3 +170,22 @@ tr.clickable:hover { background: var(--panel2); }
 .t-connect { color: #3fb950; border-color: #3fb95055; }
 .t-auth_attempt { color: var(--accent); border-color: #f0b42955; }
 .t-command { color: #ff7b72; border-color: #ff7b7255; }
+
+/* --- polish pass --- */
+.atk-card { transition: border-color 0.15s ease, transform 0.1s ease; }
+.atk-card:hover { transform: translateY(-1px); }
+tr.clickable { transition: background 0.1s ease; }
+button { transition: filter 0.12s ease, background 0.12s ease; }
+button:hover:not(:disabled) { filter: brightness(1.08); }
+button.ghost:hover:not(:disabled) { background: var(--panel2); color: var(--text); }
+table.events tbody tr { transition: background 0.1s ease; }
+.alerts-panel { box-shadow: 0 2px 10px rgba(248,81,73,0.12); }
+.modal { box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+aside h2, main h2 { margin-top: 16px; }
+.tag { font-weight: 600; letter-spacing: 0.02em; }
+.hp-card .dot { transition: box-shadow 0.3s ease; }
+
+@media (max-width: 760px) {
+  .grid { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+}
