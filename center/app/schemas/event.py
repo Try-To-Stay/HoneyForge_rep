@@ -22,6 +22,8 @@ class EventOut(BaseModel):
     protocol: str | None
     severity: str
     technique: str | None = None
+    source_country: str | None = None
+    source_asn: str | None = None
     session_id: uuid.UUID | None
     payload: dict
     occurred_at: datetime

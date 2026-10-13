@@ -40,6 +40,8 @@ export interface AttackEvent {
   honeypot_id: string;
   session_id?: string | null;
   technique?: string | null;
+  source_country?: string | null;
+  source_asn?: string | null;
   event_type: string;
   source_ip: string | null;
   source_port: number | null;
@@ -54,6 +56,20 @@ export interface Summary {
   total_events: number;
   by_type: Record<string, number>;
   top_sources: { source_ip: string; count: number }[];
+  top_countries?: { country: string; count: number }[];
+  timeline?: { t: string; count: number }[];
+}
+
+export interface Me { id: string; username: string; role: string }
+
+export interface Artifact {
+  id: string;
+  honeypot_id: string;
+  session_id: string | null;
+  kind: string;
+  filename: string;
+  sha256: string;
+  created_at: string | null;
 }
 
 const TOKEN_KEY = "hf_token";
@@ -148,7 +164,19 @@ export interface Alert {
 }
 
 export const getAlerts = () => authed<Alert[]>("/api/v1/alerts");
+export const getMe = () => authed<Me>("/api/v1/me");
+export const getArtifacts = () => authed<Artifact[]>("/api/v1/artifacts");
 export const getAttackers = () => authed<Attacker[]>("/api/v1/attackers");
+
+export async function sendCommand(honeypotId: string, action: string) {
+  const resp = await fetch(`/api/v1/honeypots/${honeypotId}/command`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+  if (!resp.ok) throw new Error(`command failed: HTTP ${resp.status}`);
+  return resp.json();
+}
 export const getAttacker = (ip: string) =>
   authed<Attacker & { techniques: Technique[] }>(`/api/v1/attackers/${ip}`);
 export const getDeception = () => authed<DeceptionAction[]>("/api/v1/deception");
@@ -163,6 +191,20 @@ export async function downloadIocs(format: "csv" | "stix") {
   const a = document.createElement("a");
   a.href = url;
   a.download = format === "csv" ? "honeyforge-iocs.csv" : "honeyforge-iocs.stix.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadArtifact(id: string, filename: string) {
+  const resp = await fetch(`/api/v1/artifacts/${id}/download`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!resp.ok) throw new Error(`download failed: HTTP ${resp.status}`);
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "artifact";
   a.click();
   URL.revokeObjectURL(url);
 }

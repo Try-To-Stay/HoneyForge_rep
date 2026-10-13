@@ -38,3 +38,4 @@ class AgentConfig:
     path_config: str = "/assets/v3/manifest.json"
     path_collect: str = "/assets/v3/collect"
     path_renew: str = "/assets/v3/renew"
+    path_blob: str = "/assets/v3/blob"

@@ -11,6 +11,7 @@ import asyncio
 import logging
 import os
 import random
+import secrets
 import time
 from datetime import datetime, timezone
 
@@ -67,11 +68,11 @@ def _needs_rotation(expires_iso: str, margin_s: int) -> bool:
     return (exp - datetime.now(timezone.utc)).total_seconds() < margin_s
 
 
-def _build_honeypots(services: list[dict], emit):
+def _build_honeypots(services: list[dict], emit, upload=None):
     """Instantiate honeypots from the profile's service list.
 
     Plain TCP banner services are handled together by the Low honeypot; ssh and
-    http services each get their Medium honeypot.
+    http services each get their Medium honeypot. High gets a file-upload hook.
     """
     honeypots: list = []
     tcp_services = [s for s in services if s.get("type") in (None, "tcp")]
@@ -81,7 +82,7 @@ def _build_honeypots(services: list[dict], emit):
         if svc.get("type") == "ssh":
             honeypots.append(SSHHoneypot(svc, emit))
         elif svc.get("type") == "ssh_high":
-            honeypots.append(HighSSHHoneypot(svc, emit))
+            honeypots.append(HighSSHHoneypot(svc, emit, upload))
         elif svc.get("type") == "http":
             honeypots.append(HTTPHoneypot(svc, emit))
         elif svc.get("type") == "mysql":
@@ -137,9 +138,40 @@ async def run() -> None:
     async def emit(event: dict) -> None:
         await buffer.enqueue(event)
 
-    honeypots = _build_honeypots(config.get("services", []), emit)
+    async def upload(filename: str, content_b64: str, session_id: str | None = None) -> None:
+        try:
+            await transport.upload_artifact(agent_key, filename, content_b64, session_id)
+            log.info("uploaded artifact %s", filename)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("artifact upload failed (%s): %s", filename, exc)
+
+    honeypots = _build_honeypots(config.get("services", []), emit, upload)
     for hp in honeypots:
         await hp.start()
+
+    async def run_command(cmd: dict) -> None:
+        """Execute a management command from the center (command channel)."""
+        action = cmd.get("action")
+        if action == "stop":
+            for hp in honeypots:
+                await hp.stop()
+            log.info("command: stopped honeypot listeners")
+        elif action == "start":
+            for hp in honeypots:
+                await hp.start()
+            log.info("command: started honeypot listeners")
+        elif action == "rotate_creds":
+            newpw = secrets.token_urlsafe(9)
+            for hp in honeypots:
+                if isinstance(hp, SSHHoneypot):
+                    await hp.stop()
+                    hp.set_credentials([{"username": "admin", "password": newpw}])
+                    await hp.start()
+            log.info("command: rotated decoy SSH credentials")
+        elif action == "refresh":
+            log.info("command: config refresh requested")
+
+    acks: list[int] = []
 
     async def sender() -> None:
         nonlocal etag, cert_expires
@@ -160,11 +192,22 @@ async def run() -> None:
             ids = [i for i, _ in pending]
             events = [e for _, e in pending]
             beacon = {"uptime_s": int(time.time() - started_at), "hp_status": "ok"}
+            acks_to_send = list(acks)
             try:
-                resp = await transport.send_telemetry(agent_key, beacon, events)
+                resp = await transport.send_telemetry(agent_key, beacon, events, acks_to_send)
                 if ids:
                     await buffer.delete(ids)
                     log.info("sent %d event(s)", len(ids))
+                for i in acks_to_send:
+                    if i in acks:
+                        acks.remove(i)
+                # Execute any commands the center queued, ack them next beacon.
+                for cmd in resp.get("commands", []):
+                    try:
+                        await run_command(cmd)
+                        acks.append(cmd["id"])
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning("command %s failed: %s", cmd.get("action"), exc)
                 new_etag = resp.get("config_etag")
                 if new_etag and new_etag != etag:
                     log.info("config changed (etag %s -> %s); refetching", etag, new_etag)

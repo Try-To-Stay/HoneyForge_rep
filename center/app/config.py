@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     deception_max_decoys: int = 3       # cap on auto-deployed decoys
     deception_window_s: int = 1800      # don't re-deploy for the same source within this
 
+    # Captured file artifacts (FR-A5 uploaded files)
+    artifacts_dir: str = "/data/artifacts"
+
     # Self-defense / exposure detection (feature #4)
     selfdefense_enabled: bool = True
     selfdefense_probe_threshold: int = 3   # recon indicators before a probe alert

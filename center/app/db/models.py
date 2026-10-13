@@ -110,6 +110,9 @@ class Event(Base):
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     # MITRE ATT&CK technique id inferred at ingest (feature #2).
     technique: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    # GeoIP/ASN enrichment of the source (TЗ §7.3).
+    source_country: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
+    source_asn: Mapped[str | None] = mapped_column(String(16), nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(TS, nullable=False)
     received_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
     # Idempotency for buffered re-delivery (FR-A4); unique so retries don't dup.
@@ -175,6 +178,21 @@ class Alert(Base):
     message: Mapped[str] = mapped_column(String(255), nullable=False)
     event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
+
+
+class Command(Base):
+    __tablename__ = "commands"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    honeypot_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("honeypots.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    action: Mapped[str] = mapped_column(String(32), nullable=False)  # stop|start|rotate_creds|refresh
+    params: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")  # pending|done
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), nullable=False)
+    delivered_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    done_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
 
 
 class DeceptionAction(Base):

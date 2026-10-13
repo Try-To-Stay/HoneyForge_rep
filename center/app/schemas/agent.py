@@ -54,16 +54,30 @@ class BeaconIn(BaseModel):
     hp_status: str | None = None
 
 
+class CommandOut(BaseModel):
+    id: int
+    action: str
+    params: dict = Field(default_factory=dict)
+
+
+class ArtifactIn(BaseModel):
+    session_id: uuid.UUID | None = None
+    filename: str
+    content_b64: str
+
+
 class TelemetryIn(BaseModel):
     sent_at: datetime | None = None
     beacon: BeaconIn | None = None
     events: list[EventIn] = Field(default_factory=list)
+    acked_commands: list[int] = Field(default_factory=list)
 
 
 class TelemetryResponse(BaseModel):
     accepted: int
     next_poll_s: int
     config_etag: str
+    commands: list[CommandOut] = Field(default_factory=list)
 
 
 class RotateResponse(ClientCert):

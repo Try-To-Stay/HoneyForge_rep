@@ -17,6 +17,7 @@ hosts.
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import os
 import uuid
@@ -72,7 +73,25 @@ async def _destroy_sandbox(name: str) -> None:
     await proc.communicate()
 
 
-def _make_handler(emit, port: int):
+async def _capture_files(cname: str, upload, sid: str) -> None:
+    """Grab small files the attacker left in /tmp or /root and upload them to
+    the center as artifacts (FR-A5 uploaded/captured files)."""
+    if upload is None:
+        return
+    listing = await _run_capture(
+        "docker", "exec", cname, "sh", "-c",
+        "find /tmp /root -type f -size -65536c 2>/dev/null | head -10", timeout=10,
+    )
+    for path in listing.decode(errors="replace").split():
+        content = await _run_capture("docker", "exec", cname, "cat", path, timeout=10)
+        if content:
+            try:
+                await upload(os.path.basename(path), base64.b64encode(content).decode(), sid)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("capture upload failed for %s: %s", path, exc)
+
+
+def _make_handler(emit, port: int, upload=None):
     async def handle(process: asyncssh.SSHServerProcess) -> None:
         peer = process.get_extra_info("peername")
         info = _SESSIONS.get(peer, {})
@@ -134,6 +153,10 @@ def _make_handler(emit, port: int):
                 rec.close()
             except Exception:  # noqa: BLE001
                 pass
+            try:
+                await _capture_files(cname, upload, sid)   # upload attacker files
+            except Exception:  # noqa: BLE001
+                pass
             await _destroy_sandbox(cname)  # auto-reset
             _sem.release()
             await emit(
@@ -153,9 +176,10 @@ def _make_handler(emit, port: int):
 
 
 class HighSSHHoneypot:
-    def __init__(self, service: dict, emit):
+    def __init__(self, service: dict, emit, upload=None):
         self._service = service
         self._emit = emit
+        self._upload = upload
         self._server: asyncssh.SSHAcceptor | None = None
 
     async def start(self) -> None:
@@ -168,7 +192,7 @@ class HighSSHHoneypot:
             port,
             server_host_keys=[host_key],
             server_version="OpenSSH_8.9p1",
-            process_factory=_make_handler(self._emit, port),
+            process_factory=_make_handler(self._emit, port, self._upload),
         )
         log.info("high-interaction SSH honeypot listening on tcp/%s (sandbox=%s)", port, SANDBOX_IMAGE)
 

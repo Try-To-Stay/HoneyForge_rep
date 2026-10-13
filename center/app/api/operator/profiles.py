@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db.models import Profile
 from app.schemas.profile import ProfileCreate, ProfileOut, ProfileUpdate
-from app.security.deps import CurrentOperator, DbSession
+from app.security.deps import CurrentAdmin, CurrentOperator, DbSession
 from app.services import audit
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -29,7 +29,7 @@ async def list_profiles(current: CurrentOperator, db: DbSession):
 
 
 @router.post("", response_model=ProfileOut, status_code=status.HTTP_201_CREATED)
-async def create_profile(body: ProfileCreate, current: CurrentOperator, db: DbSession):
+async def create_profile(body: ProfileCreate, current: CurrentAdmin, db: DbSession):
     profile = Profile(
         name=body.name, level=body.level, config=body.config, created_by=current.id
     )
@@ -50,7 +50,7 @@ async def get_profile(profile_id: uuid.UUID, current: CurrentOperator, db: DbSes
 
 @router.put("/{profile_id}", response_model=ProfileOut)
 async def update_profile(
-    profile_id: uuid.UUID, body: ProfileUpdate, current: CurrentOperator, db: DbSession
+    profile_id: uuid.UUID, body: ProfileUpdate, current: CurrentAdmin, db: DbSession
 ):
     profile = await _get_or_404(db, profile_id)
     data = body.model_dump(exclude_unset=True)
@@ -65,7 +65,7 @@ async def update_profile(
 
 
 @router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_profile(profile_id: uuid.UUID, current: CurrentOperator, db: DbSession):
+async def delete_profile(profile_id: uuid.UUID, current: CurrentAdmin, db: DbSession):
     profile = await _get_or_404(db, profile_id)
     await db.delete(profile)
     await audit.record(
