@@ -277,6 +277,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </aside>
 
         <main>
+          {summary && <Analytics summary={summary} />}
+
           {alerts.length > 0 && (
             <div className="alerts-panel">
               <h2>Alerts</h2>
@@ -325,7 +327,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     {ev.technique && <span className="attck" title="MITRE ATT&CK">{ev.technique}</span>}
                   </td>
                   <td>{hpName[ev.honeypot_id] ?? ev.honeypot_id.slice(0, 8)}</td>
-                  <td className="mono">{ev.source_ip ?? "—"}{ev.source_port ? `:${ev.source_port}` : ""}</td>
+                  <td className="mono">
+                    {ev.source_country && <span className="cc" title={ev.source_asn ?? ""}>{flag(ev.source_country)} {ev.source_country}</span>}
+                    {ev.source_ip ?? "—"}{ev.source_port ? `:${ev.source_port}` : ""}
+                  </td>
                   <td className="mono">{ev.protocol ?? ""}/{ev.dest_port ?? "—"}</td>
                   <td className="mono small">{details(ev)}</td>
                 </tr>
@@ -474,6 +479,83 @@ function SessionModal({
       </div>
     </div>
   );
+}
+
+const CHART_OPTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: "#8a93a6", maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: "rgba(255,255,255,0.04)" } },
+    y: { ticks: { color: "#8a93a6", precision: 0 }, grid: { color: "rgba(255,255,255,0.06)" }, beginAtZero: true },
+  },
+} as const;
+
+const PALETTE = ["#f5a623", "#4a90d9", "#50c878", "#e05c5c", "#b07cf0", "#4ec9b0"];
+
+function Analytics({ summary }: { summary: Summary }) {
+  const timeline = summary.timeline ?? [];
+  const byType = Object.entries(summary.by_type ?? {});
+  const topSources = summary.top_sources ?? [];
+  const topCountries = summary.top_countries ?? [];
+
+  const lineData = {
+    labels: timeline.map((p) => new Date(p.t).toLocaleTimeString([], { hour: "2-digit" })),
+    datasets: [{
+      data: timeline.map((p) => p.count),
+      borderColor: "#f5a623",
+      backgroundColor: "rgba(245,166,35,0.15)",
+      fill: true, tension: 0.3, pointRadius: 2,
+    }],
+  };
+  const doughnutData = {
+    labels: byType.map(([t]) => t),
+    datasets: [{ data: byType.map(([, c]) => c), backgroundColor: PALETTE, borderWidth: 0 }],
+  };
+  const sourcesData = {
+    labels: topSources.map((s) => s.source_ip),
+    datasets: [{ data: topSources.map((s) => s.count), backgroundColor: "#4a90d9", borderRadius: 4 }],
+  };
+  const countriesData = {
+    labels: topCountries.map((c) => `${flag(c.country)} ${c.country}`),
+    datasets: [{ data: topCountries.map((c) => c.count), backgroundColor: "#50c878", borderRadius: 4 }],
+  };
+
+  return (
+    <div className="analytics">
+      <div className="chart-card wide">
+        <h3>Events (last 24h)</h3>
+        <div className="chart-box">
+          {timeline.length ? <Line data={lineData} options={CHART_OPTS} /> : <p className="muted small">no data yet</p>}
+        </div>
+      </div>
+      <div className="chart-card">
+        <h3>By type</h3>
+        <div className="chart-box">
+          {byType.length ? <Doughnut data={doughnutData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { color: "#8a93a6", boxWidth: 10, font: { size: 10 } } } } }} /> : <p className="muted small">no data</p>}
+        </div>
+      </div>
+      <div className="chart-card">
+        <h3>Top sources</h3>
+        <div className="chart-box">
+          {topSources.length ? <Bar data={sourcesData} options={{ ...CHART_OPTS, indexAxis: "y" as const }} /> : <p className="muted small">no data</p>}
+        </div>
+      </div>
+      <div className="chart-card">
+        <h3>Top countries</h3>
+        <div className="chart-box">
+          {topCountries.length ? <Bar data={countriesData} options={{ ...CHART_OPTS, indexAxis: "y" as const }} /> : <p className="muted small">no geo data</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function flag(cc: string): string {
+  if (!cc || cc.length !== 2) return "🌐";
+  const base = 0x1f1e6;
+  const up = cc.toUpperCase();
+  return String.fromCodePoint(base + up.charCodeAt(0) - 65, base + up.charCodeAt(1) - 65);
 }
 
 function details(ev: AttackEvent): string {

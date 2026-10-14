@@ -16,7 +16,7 @@ RUN chmod +x entrypoint.sh
 
 # Offline GeoIP/ASN dataset (public domain, iptoasn.com). Non-fatal if the
 # download is unavailable — the center degrades to no enrichment.
-RUN mkdir -p /geodata && python -c "import urllib.request; urllib.request.urlretrieve('https://iptoasn.com/data/ip2asn-v4.tsv.gz','/geodata/ip2asn-v4.tsv.gz')" || echo "geoip dataset download skipped"
+RUN mkdir -p /geodata && python -c "import urllib.request as u; r=u.Request('https://iptoasn.com/data/ip2asn-v4.tsv.gz', headers={'User-Agent':'HoneyForge/1.0 (+geoip-build)'}); open('/geodata/ip2asn-v4.tsv.gz','wb').write(u.urlopen(r, timeout=60).read())" || echo "geoip dataset download skipped"
 
 EXPOSE 8000
 
