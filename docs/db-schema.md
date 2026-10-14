@@ -14,6 +14,7 @@ erDiagram
   honeypots ||--o{ auth_attempts : "фиксирует"
   honeypots ||--o{ artifacts : "сохраняет"
   honeypots ||--o{ alerts : "вызывает"
+  honeypots ||--o{ commands : "получает"
   sessions  ||--o{ events : "включает"
   sessions  ||--o{ auth_attempts : "включает"
   sessions  ||--o{ artifacts : "запись"
@@ -22,7 +23,7 @@ erDiagram
     uuid id PK
     text username UK
     text password_hash "argon2"
-    text role
+    text role "operator|admin|viewer"
     timestamptz created_at
   }
   profiles {
@@ -47,6 +48,8 @@ erDiagram
     uuid honeypot_id FK
     text event_type "scan|connect|auth_attempt|command|http_request|token_trigger"
     inet source_ip
+    text source_country "GeoIP, ISO-3166"
+    text source_asn "GeoIP, AS<num>"
     int dest_port
     text severity
     uuid session_id FK
@@ -94,6 +97,16 @@ erDiagram
     text severity
     text message
     int event_count
+  }
+  commands {
+    bigint id PK
+    uuid honeypot_id FK
+    text action "stop|start|rotate_creds|refresh"
+    jsonb params
+    text status "pending|delivered|done"
+    timestamptz created_at
+    timestamptz delivered_at
+    timestamptz done_at
   }
   audit_log {
     bigint id PK

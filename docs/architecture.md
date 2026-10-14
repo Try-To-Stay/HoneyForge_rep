@@ -81,9 +81,11 @@ sequenceDiagram
   AG->>AG: запись в буфер (SQLite)
   AG->>NG: POST /assets/v3/collect (TLS, beacon)
   NG->>C: /agent/telemetry
-  C->>C: нормализация, запись, правила алертов
+  C->>C: нормализация, обогащение гео/ASN, запись, правила алертов
   C->>R: публикация события/алерта
   R-->>C: подписка (WebSocket)
   C-->>D: push в ленту
+  C-->>AG: ответ с очередью команд (stop/start/rotate_creds/refresh)
+  AG->>AG: исполнение команды, ack в следующем beacon
   Note over AG,C: при потере связи события копятся в буфере<br/>и досылаются (идемпотентно по dedup_key)
 ```
