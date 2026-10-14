@@ -148,7 +148,7 @@ operators(
   id            uuid pk,
   username      text unique not null,
   password_hash text not null,          -- argon2
-  role          text not null default 'operator',  -- operator|admin
+  role          text not null default 'operator',  -- operator|admin|viewer (RBAC: admin пишет, viewer только читает)
   created_at    timestamptz not null default now()
 )
 
@@ -185,6 +185,8 @@ events(
   source_port   int,
   dest_port     int,
   protocol      text,                   -- tcp|udp|ssh|http
+  source_country text,                  -- GeoIP: страна источника (ISO-3166), офлайн-база
+  source_asn    text,                   -- GeoIP: ASN источника (AS<num>)
   severity      text not null default 'info',  -- info|low|medium|high
   session_id    uuid fk->sessions.id null,
   payload       jsonb not null default '{}',   -- детали: баннер, путь, UA, команда и т.д.
@@ -192,7 +194,7 @@ events(
   received_at   timestamptz not null default now(),  -- время приёма центром
   dedup_key     text unique             -- идемпотентность дослылки из буфера (FR-A4)
 )
--- индексы: (honeypot_id, occurred_at), (source_ip), (event_type)
+-- индексы: (honeypot_id, occurred_at), (source_ip), (event_type), (source_country)
 
 -- Интерактивные сессии (Medium, FR-A1/A2)
 sessions(
@@ -248,6 +250,18 @@ audit_log(
   ip            inet,
   created_at    timestamptz not null default now()
 )
+
+-- Очередь команд центр -> ловушка (обратный канал управления)
+commands(
+  id            bigserial pk,
+  honeypot_id   uuid fk->honeypots.id,
+  action        text not null,          -- stop|start|rotate_creds|refresh
+  params        jsonb not null default '{}',
+  status        text not null default 'pending',  -- pending|delivered|done
+  created_at    timestamptz not null default now(),
+  delivered_at  timestamptz,            -- проставляется при выдаче агенту в ответе телеметрии
+  done_at       timestamptz             -- проставляется по ack агента
+)
 ```
 
 Формат `profiles.config` (пример Medium):
@@ -273,7 +287,7 @@ audit_log(
 
 ### 6.1 Операторский API (mgmt) — префикс `/api/v1`, только из mgmt-сети
 
-Аутентификация: JWT (access + refresh), пароль через Argon2. Все роуты, кроме `/auth/login`, требуют `Authorization: Bearer`.
+Аутентификация: JWT (access + refresh), пароль через Argon2. Все роуты, кроме `/auth/login`, требуют `Authorization: Bearer`. **RBAC:** читающие роуты — `admin` и `viewer`; мутирующие (создание/изменение/удаление профилей и ловушек, деплой, команды) — только `admin` (иначе `403`); dependency `CurrentAdmin` в `security/deps.py`.
 
 ```
 POST   /api/v1/auth/login            {username, password} -> {access_token, refresh_token}
@@ -292,18 +306,25 @@ GET    /api/v1/honeypots                                     -> [Honeypot]  # с
 POST   /api/v1/honeypots             {name, profile_id, host_label}
                                                             -> {honeypot, enroll_token}  # токен показывается один раз
 GET    /api/v1/honeypots/{id}                                -> HoneypotDetail
-DELETE /api/v1/honeypots/{id}                                -> 204
+DELETE /api/v1/honeypots/{id}                                -> 204   # admin
+POST   /api/v1/honeypots/{id}/command  {action}             -> 202   # admin; stop|start|rotate_creds|refresh
 
-# События (FR-C4) — фильтры по ловушке/времени/источнику/типу
+# События (FR-C4) — фильтры по ловушке/времени/источнику/типу; событие обогащено source_country/source_asn
 GET    /api/v1/events?honeypot_id=&type=&source_ip=&from=&to=&limit=&cursor=
                                                             -> {items:[Event], next_cursor}
 GET    /api/v1/sessions/{id}                                -> SessionDetail (+ commands, auth_attempts)
 
 # Аналитика (dashboard §3.4.4)
-GET    /api/v1/stats/summary                                -> {total_events, by_type, top_sources, timeline}
+GET    /api/v1/stats/summary                                -> {total_events, by_type, top_sources, top_countries, timeline}
+
+# Артефакты (файлы, захваченные High)
+GET    /api/v1/artifacts                                     -> [Artifact]
+GET    /api/v1/artifacts/{id}/download                       -> файл
 
 # Bonus
 POST   /api/v1/honeypots/{id}/deploy                         -> запуск оркестратора (FR-C6)
+GET    /api/v1/attackers[/{ip}]                              -> корреляция + MITRE ATT&CK
+GET    /api/v1/deception                                     -> история адаптивной лестницы обмана
 GET    /api/v1/export/iocs?format=csv|stix                   -> файл (FR-C7)
 GET    /api/v1/audit                                         -> [AuditEntry]
 ```
@@ -314,9 +335,11 @@ GET    /api/v1/audit                                         -> [AuditEntry]
 
 | Внешний (виден атакующему) | Внутренний роут центра | Назначение |
 |---|---|---|
-| `POST /assets/v3/collect`        | `/agent/telemetry` | приём телеметрии (beacon + события) |
+| `POST /assets/v3/collect`        | `/agent/telemetry` | приём телеметрии (beacon + события); в ответе — команды центра |
 | `GET  /assets/v3/manifest.json`  | `/agent/config`    | выдача конфигурации по профилю (FR-C3) |
 | `POST /assets/v3/register`       | `/agent/enroll`    | привязка ловушки по enroll-токену |
+| `POST /assets/v3/renew`          | `/agent/rotate`    | ротация клиентского сертификата (mTLS) |
+| `POST /assets/v3/blob`           | `/agent/artifact`  | выгрузка файлового артефакта (захват High) |
 
 Аутентификация агента: на Must — `enroll_token` → в ответ выдаётся `agent_key`; дальше каждый запрос подписан `agent_key` (HMAC-заголовок, выглядящий как обычный `X-Request-Id`/cookie). На Bonus (MASK-7) — mTLS с pinning + ротация.
 
@@ -338,7 +361,7 @@ GET    /api/v1/audit                                         -> [AuditEntry]
   ]
 }
 ```
-Ответ: `{ "accepted": N, "next_poll_s": 30, "config_etag": "..." }` — `config_etag` сигналит агенту, что пора забрать свежий `manifest.json` (конфиг).
+Ответ: `{ "accepted": N, "next_poll_s": 30, "config_etag": "...", "commands": [{id, action, params}] }` — `config_etag` сигналит агенту забрать свежий `manifest.json`; `commands` — очередь команд центра (агент исполняет и подтверждает их `acked_commands` в следующем beacon). При приёме центр обогащает каждое событие страной и ASN источника (офлайн-база GeoIP, `services/geoip.py`).
 
 ### 6.3 Внутренний контракт realtime (Redis → WS)
 Коллектор после записи события публикует в канал `events:{honeypot_id}` и `events:all`:

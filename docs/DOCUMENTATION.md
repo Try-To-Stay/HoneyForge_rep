@@ -71,11 +71,12 @@
 
 ## 3. Возможности
 
-- **Центр:** Control API (FastAPI), PostgreSQL, Redis, аутентификация оператора + аудит.
-- **Ловушки:** Low (баннеры), Medium (fake-SSH/HTTP), High (реальная изолированная песочница).
-- **Канал:** TLS + маскировка под CDN + сегментация сетей + (опц.) mTLS.
+- **Центр:** Control API (FastAPI), PostgreSQL, Redis, аутентификация оператора + аудит; разграничение доступа (RBAC: `admin` / `viewer`).
+- **Ловушки:** Low (баннеры), Medium (fake-SSH/HTTP/MySQL), High (реальная изолированная песочница с захватом файловых артефактов).
+- **Канал:** TLS + маскировка под CDN + сегментация сетей + (опц.) mTLS; обратный канал команд центр→ловушка (`stop`/`start`/`rotate_creds`/`refresh`).
+- **Обогащение:** страна и ASN источника по офлайн-базе (GeoIP), разметка по MITRE ATT&CK.
 - **Realtime:** WebSocket-лента, статусы ловушек.
-- **Dashboard:** список ловушек, живая лента, фильтры, карточки сессий, алерты, экспорт IoC, деплой из профиля.
+- **Dashboard:** список ловушек, живая лента (с флагом страны/ASN), графики аналитики (Chart.js), фильтры, карточки сессий, алерты, артефакты, экспорт IoC, деплой из профиля, команды ловушкам (для `admin`).
 - **Bonus:** оркестратор, джиттер, анти-фингерпринтинг, алерты, IoC CSV/STIX, honeytokens, High-interaction, mTLS.
 
 ---
@@ -151,6 +152,10 @@ curl http://localhost:8080/healthz
 Dashboard: `http://localhost:8080` · логин `admin` · пароль из `.env`
 (`SEED_OPERATOR_PASSWORD`, по умолчанию `honeyforge-admin`).
 
+Сеются две учётки: `admin` (роль `admin`, полный доступ) и `viewer` (роль
+`viewer`, только чтение; по умолчанию `viewer` / `honeyforge-viewer`,
+переопределяется `SEED_VIEWER_USER` / `SEED_VIEWER_PASSWORD`).
+
 ---
 
 ## 7. Режимы запуска
@@ -186,17 +191,27 @@ docker compose exec -e PYTHONPATH=/app center python scripts/seed.py
 Войдите на `http://<host>:<port>` под оператором.
 
 - **Honeypots** (слева) — список ловушек со статусом online/offline/unknown и
-  last-seen. Клик по карточке фильтрует ленту по этой ловушке.
-- **Top sources** — топ IP-источников атак.
+  last-seen. Клик по карточке фильтрует ленту по этой ловушке. Для роли `admin`
+  на карточке — кнопки команд: **stop** / **start** / **rotate creds** (команда
+  уходит ловушке через обратный канал агента).
+- **Аналитика (Chart.js)** — над лентой: события за 24 ч (линия), разбивка по
+  типам (кольцо), топ источников и **топ стран** (столбцы).
 - **Deploy honeypot** — деплой новой ловушки из профиля одной кнопкой (виден
   только если оркестратор доступен; на проде скрыт).
 - **Alerts** (сверху ленты) — срабатывания правил (брутфорс, honeytoken).
 - **Event feed** — живая лента: `scan`, `connect`, `auth_attempt` (пароль
-  замаскирован), `command`, `http_request`, `token_trigger`. Клик по событию
-  сессии открывает карточку с кредами (маска) и транскриптом команд.
+  замаскирован), `command`, `http_request`, `token_trigger`. У источника — флаг
+  страны и ASN. Клик по событию сессии открывает карточку с кредами (маска) и
+  транскриптом команд.
+- **Artifacts** — файлы, захваченные High-ловушкой из песочницы; клик скачивает
+  (имя + SHA-256).
 - **Фильтры** — по ловушке / типу события / IP источника.
 - **Export CSV / STIX** (сверху) — выгрузка индикаторов компрометации.
 - Индикатор **● live** — активное WebSocket-соединение.
+
+> **Роли (RBAC).** `admin` — полный доступ (управление ловушками/профилями,
+> команды). `viewer` — только чтение: кнопки управления скрыты, мутирующие
+> запросы к API возвращают 403. Сеяные учётки — в разделе 6.
 
 ---
 
@@ -313,22 +328,32 @@ mTLS снимает конфликт с MASK-2 так: `ssl_verify_client option
 
 **Операторский (mgmt, `/api/v1`, JWT):**
 ```
-POST /auth/login · /auth/refresh · GET /me
-GET/POST/PUT/DELETE /profiles[/{id}]
-GET/POST/DELETE /honeypots[/{id}] · POST /honeypots/deploy
+POST /auth/login · /auth/refresh · GET /me          # /me -> {id, username, role}
+GET/POST/PUT/DELETE /profiles[/{id}]                 # мутации — только admin
+GET/POST/DELETE /honeypots[/{id}] · POST /honeypots/deploy   # мутации — только admin
+POST /honeypots/{id}/command   {"action": stop|start|rotate_creds|refresh}  # admin
 GET /events?honeypot_id=&type=&source_ip=&from=&to=&limit=&cursor=
 GET /sessions/{id} · GET /stats/summary · GET /stats/capabilities
+GET /artifacts · GET /artifacts/{id}/download        # файлы, захваченные High
+GET /attackers[/{ip}] · GET /deception               # корреляция, лестница обмана
 GET /alerts · GET /export/iocs?format=csv|stix
 WS  /api/v1/ws?token=<JWT>     # realtime-лента
 Swagger: /docs
 ```
 
+**RBAC.** Читающие эндпоинты доступны и `admin`, и `viewer`. Мутирующие
+(создание/изменение/удаление профилей и ловушек, деплой, команды) требуют роль
+`admin` — иначе `403`. Роль берётся из JWT; проверка — `CurrentAdmin`
+(`center/app/security/deps.py`).
+
 **Агентский (замаскирован Nginx'ом, honeynet):**
 ```
 POST /assets/v3/register   -> /agent/enroll      (bootstrap по enroll-токену)
 GET  /assets/v3/manifest.json -> /agent/config
-POST /assets/v3/collect    -> /agent/telemetry   (beacon + события)
+POST /assets/v3/collect    -> /agent/telemetry   (beacon + события; в ответе —
+                                                   команды центра, агент их ack-ает)
 POST /assets/v3/renew      -> /agent/rotate       (ротация cert при mTLS)
+POST /assets/v3/blob       -> /agent/artifact     (выгрузка файлового артефакта)
 ```
 Аутентификация агента: опаковый ключ в заголовке `X-Request-Id` (+ mTLS при включении).
 
@@ -336,10 +361,11 @@ POST /assets/v3/renew      -> /agent/rotate       (ротация cert при mT
 
 ## 14. Схема БД
 
-Таблицы: `operators`, `profiles`, `honeypots`, `events`, `sessions`,
-`auth_attempts`, `artifacts`, `honeytokens`, `alerts`, `audit_log`. Миграции —
-Alembic (применяются на старте центра). ER-диаграмма — в [db-schema.md](db-schema.md),
-описание полей — в [DESIGN §5](DESIGN.md).
+Таблицы: `operators` (с полем `role`), `profiles`, `honeypots`, `events`
+(+ `source_country` / `source_asn` из GeoIP), `sessions`, `auth_attempts`,
+`artifacts`, `commands` (очередь команд центр→ловушка), `honeytokens`, `alerts`,
+`audit_log`. Миграции — Alembic (применяются на старте центра). ER-диаграмма — в
+[db-schema.md](db-schema.md), описание полей — в [DESIGN §5](DESIGN.md).
 
 Ключевое: пароли в `auth_attempts` — только хэш + маска (не в открытом виде);
 `events.dedup_key` обеспечивает идемпотентность дослылки из буфера агента.
@@ -463,10 +489,12 @@ docker compose [-f ...] down -v
 
 ## 19. Планы развития
 
-- Графики аналитики (Chart.js): события по времени, карта/топ источников.
 - Автотесты (pytest) + CI (GitHub Actions).
 - Уведомления об алертах (Telegram/webhook).
-- Загрузка артефактов (записи High-сессий, pcap) в центр и просмотр в UI.
-- Обогащение IP (GeoIP/ASN); ещё типы ловушек (SMB/RDP/Redis).
+- Ещё типы ловушек (SMB/RDP/Redis).
 - High-interaction на полноценных VM (не только контейнеры).
 - HTTPS для дашборда (именованный туннель/домен) и защита логина от брутфорса.
+
+> Графики аналитики (Chart.js), захват файловых артефактов High-сессий,
+> обогащение IP страной/ASN (GeoIP), разграничение доступа (RBAC) и обратный
+> канал команд центр→ловушка **уже реализованы** — см. разделы 3, 8 и 13.
