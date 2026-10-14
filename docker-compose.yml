@@ -35,6 +35,8 @@ services:
   center:
     build: ./center
     env_file: .env
+    volumes:
+      - artifacts:/data/artifacts   # captured file artifacts (FR-A5)
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,6 +124,7 @@ volumes:
   agentdata_low:
   agentdata_medium:
   certs:
+  artifacts:
 
 networks:
   mgmt:

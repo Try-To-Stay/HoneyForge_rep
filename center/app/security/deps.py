@@ -50,3 +50,16 @@ async def get_current_operator(
 
 
 CurrentOperator = Annotated[Operator, Depends(get_current_operator)]
+
+
+async def get_current_admin(current: CurrentOperator) -> Operator:
+    """Require the admin role for mutating actions (RBAC, FR-C5)."""
+    if current.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This action requires the admin role",
+        )
+    return current
+
+
+CurrentAdmin = Annotated[Operator, Depends(get_current_admin)]

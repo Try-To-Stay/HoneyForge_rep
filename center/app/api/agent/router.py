@@ -5,14 +5,19 @@ All responses avoid honeypot/c2 wording. See docs/DESIGN.md §6.2.
 """
 from __future__ import annotations
 
+import base64
+import hashlib
+import os
+import re
 import secrets
 
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
-from app.db.models import Honeypot, Profile
+from app.db.models import Artifact, Honeypot, Profile
 from app.config import get_settings
 from app.schemas.agent import (
+    ArtifactIn,
     ClientCert,
     ConfigPayload,
     EnrollRequest,
@@ -25,7 +30,7 @@ from app.security import ca
 from app.security.agent_auth import AgentHoneypot
 from app.security.deps import DbSession
 from app.security.passwords import hash_token
-from app.services import alerts, deception, exposure, telemetry
+from app.services import alerts, commands, deception, exposure, telemetry
 from app.services.config_etag import compute_etag
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -115,6 +120,8 @@ async def post_telemetry(body: TelemetryIn, hp: AgentHoneypot, db: DbSession, re
     new_alerts = await alerts.evaluate(db, redis, hp, body.events)
     await exposure.evaluate(db, redis, hp, body.events)      # feature #4
     await deception.evaluate(db, redis, new_alerts)          # feature #3
+    await commands.ack(db, body.acked_commands)              # command channel
+    pending = await commands.pending_for(db, hp)
     await telemetry.mark_seen(db, hp)
     await db.commit()
 
@@ -123,4 +130,26 @@ async def post_telemetry(body: TelemetryIn, hp: AgentHoneypot, db: DbSession, re
         accepted=accepted,
         next_poll_s=NEXT_POLL_S,
         config_etag=compute_etag(config),
+        commands=pending,
     )
+
+
+@router.post("/artifact")
+async def upload_artifact(body: ArtifactIn, hp: AgentHoneypot, db: DbSession):
+    """Receive a file captured on a honeypot (FR-A5 uploaded files): store it
+    with its SHA-256 and record an artifact row."""
+    try:
+        data = base64.b64decode(body.content_b64)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad content")
+    data = data[:1_000_000]  # cap at 1 MB
+    sha = hashlib.sha256(data).hexdigest()
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", body.filename)[:64] or "file"
+    os.makedirs(settings.artifacts_dir, exist_ok=True)
+    path = os.path.join(settings.artifacts_dir, f"{sha[:12]}_{safe}")
+    with open(path, "wb") as f:
+        f.write(data)
+    db.add(Artifact(honeypot_id=hp.id, session_id=body.session_id, kind="upload",
+                    path=path, sha256=sha))
+    await db.commit()
+    return {"stored": True, "sha256": sha, "size": len(data)}

@@ -20,6 +20,8 @@ from app.security.passwords import hash_password, hash_token
 
 OPERATOR_USER = os.getenv("SEED_OPERATOR_USER", "admin")
 OPERATOR_PASSWORD = os.getenv("SEED_OPERATOR_PASSWORD", "honeyforge-admin")
+VIEWER_USER = os.getenv("SEED_VIEWER_USER", "viewer")
+VIEWER_PASSWORD = os.getenv("SEED_VIEWER_PASSWORD", "honeyforge-viewer")
 LOW_ENROLL_TOKEN = os.getenv("SEED_LOW_ENROLL_TOKEN", "dev-low-enroll-token")
 LOW_HONEYPOT_NAME = "honeypot-low-01"
 MEDIUM_ENROLL_TOKEN = os.getenv("SEED_MEDIUM_ENROLL_TOKEN", "dev-medium-enroll-token")
@@ -100,6 +102,18 @@ async def main() -> None:
             print(f"created operator '{OPERATOR_USER}'")
         else:
             print(f"operator '{OPERATOR_USER}' already exists")
+
+        # Read-only viewer (RBAC demo): can view but not mutate.
+        vexists = await db.execute(select(Operator).where(Operator.username == VIEWER_USER))
+        if vexists.scalar_one_or_none() is None:
+            db.add(
+                Operator(
+                    username=VIEWER_USER,
+                    password_hash=hash_password(VIEWER_PASSWORD),
+                    role="viewer",
+                )
+            )
+            print(f"created viewer '{VIEWER_USER}'")
 
         profiles: dict[str, Profile] = {}
         for spec in (LOW_PROFILE, MEDIUM_PROFILE, HIGH_PROFILE):

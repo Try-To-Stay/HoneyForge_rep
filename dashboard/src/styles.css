@@ -189,3 +189,44 @@ aside h2, main h2 { margin-top: 16px; }
   .grid { grid-template-columns: 1fr; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---- command buttons on honeypot cards ---- */
+.hp-cmds { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.mini {
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 3px 9px;
+  font-size: 11px;
+  border-radius: 5px;
+}
+.mini:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---- artifacts ---- */
+.art-row { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+.art-row:hover { color: var(--accent); }
+.art-sha { font-family: ui-monospace, Menlo, Consolas, monospace; opacity: 0.6; }
+
+/* ---- country code in feed ---- */
+.cc { margin-right: 6px; opacity: 0.85; }
+
+/* ---- analytics charts ---- */
+.analytics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.chart-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.chart-card.wide { grid-column: 1 / -1; }
+.chart-card h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.chart-box { height: 180px; position: relative; }
+.chart-card.wide .chart-box { height: 200px; }
+@media (max-width: 760px) {
+  .analytics { grid-template-columns: 1fr; }
+}

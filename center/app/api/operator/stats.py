@@ -1,6 +1,8 @@
 """Lightweight aggregates for the dashboard header."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
@@ -37,8 +39,32 @@ async def summary(current: CurrentOperator, db: DbSession):
         )
     ).all()
 
+    # Events per hour over the last 24h (for the timeline chart).
+    bucket = func.date_trunc("hour", Event.occurred_at)
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    tl_rows = (
+        await db.execute(
+            select(bucket.label("b"), func.count(Event.id))
+            .where(Event.occurred_at >= since)
+            .group_by("b")
+            .order_by("b")
+        )
+    ).all()
+
+    top_country_rows = (
+        await db.execute(
+            select(Event.source_country, func.count(Event.id))
+            .where(Event.source_country.is_not(None))
+            .group_by(Event.source_country)
+            .order_by(func.count(Event.id).desc())
+            .limit(6)
+        )
+    ).all()
+
     return {
         "total_events": total,
         "by_type": {t: c for t, c in by_type_rows},
         "top_sources": [{"source_ip": str(ip), "count": c} for ip, c in top_src_rows],
+        "top_countries": [{"country": c, "count": n} for c, n in top_country_rows],
+        "timeline": [{"t": b.isoformat(), "count": n} for b, n in tl_rows],
     }

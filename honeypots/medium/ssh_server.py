@@ -183,15 +183,19 @@ class SSHHoneypot:
     def __init__(self, service: dict, emit: EmitFn):
         self._service = service
         self._emit = emit
+        self._creds = service.get("fake_credentials", [{"username": "admin", "password": "admin123"}])
         self._server: asyncssh.SSHAcceptor | None = None
+
+    def set_credentials(self, creds: list[dict]) -> None:
+        """Rotate the decoy credentials live (command channel: rotate_creds)."""
+        self._creds = creds
 
     async def start(self) -> None:
         port = int(self._service.get("port", 22))
-        creds = self._service.get("fake_credentials", [{"username": "admin", "password": "admin123"}])
         host_key = load_or_create_host_key("/data/ssh_host_key")
 
         self._server = await asyncssh.create_server(
-            lambda: _HoneySSHServer(self._emit, creds, port),
+            lambda: _HoneySSHServer(self._emit, self._creds, port),
             "0.0.0.0",
             port,
             server_host_keys=[host_key],

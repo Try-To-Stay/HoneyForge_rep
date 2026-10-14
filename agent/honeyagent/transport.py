@@ -67,11 +67,24 @@ class Transport:
         resp.raise_for_status()
         return resp.json()
 
-    async def send_telemetry(self, agent_key: str, beacon: dict, events: list[dict]) -> dict:
+    async def send_telemetry(
+        self, agent_key: str, beacon: dict, events: list[dict], acked: list[int] | None = None
+    ) -> dict:
         resp = await self._client.post(
             self._cfg.path_collect,
             headers={AGENT_KEY_HEADER: agent_key},
-            json={"beacon": beacon, "events": events},
+            json={"beacon": beacon, "events": events, "acked_commands": acked or []},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def upload_artifact(
+        self, agent_key: str, filename: str, content_b64: str, session_id: str | None = None
+    ) -> dict:
+        resp = await self._client.post(
+            self._cfg.path_blob,
+            headers={AGENT_KEY_HEADER: agent_key},
+            json={"filename": filename, "content_b64": content_b64, "session_id": session_id},
         )
         resp.raise_for_status()
         return resp.json()

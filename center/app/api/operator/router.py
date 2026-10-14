@@ -5,6 +5,7 @@ from fastapi import APIRouter
 
 from app.api.operator import (
     alerts,
+    artifacts,
     auth,
     events,
     export,
@@ -26,3 +27,4 @@ operator_router.include_router(stats.router)
 operator_router.include_router(alerts.router)
 operator_router.include_router(export.router)
 operator_router.include_router(intel.router)
+operator_router.include_router(artifacts.router)
