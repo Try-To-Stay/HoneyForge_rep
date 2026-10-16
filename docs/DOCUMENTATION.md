@@ -397,8 +397,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 Включить High на сервере: добавить `SEED_HIGH_ENROLL_TOKEN` в `.env`,
 `docker pull alpine:3.20`, и поднять с `-f docker-compose.high.yml`.
 
-**Текущий стенд проекта:** `http://93.88.204.70:9080` (demo-режим, Low+Medium+High;
-High доступен через SSH-туннель на порт 2223).
+**Стенд проекта:** demo-режим (Low+Medium+High), дашборд на `http://<server>:9080`;
+High доступен через SSH-туннель на порт 2223. Адрес стенда — у администратора команды.
 
 ---
 
