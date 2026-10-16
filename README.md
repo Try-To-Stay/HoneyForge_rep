@@ -19,6 +19,7 @@
 - [docs/db-schema.md](docs/db-schema.md) — ER-схема БД (Mermaid).
 - [docs/presentation.md](docs/presentation.md) — презентация к защите.
 - [docs/DEPLOY.md](docs/DEPLOY.md) — развёртывание на сервере (demo-режим).
+- [docs/RUNBOOK.md](docs/RUNBOOK.md) — управление стендом: выставить/убрать ловушки, имитация атак, логи.
 - [docs/TEAM.md](docs/TEAM.md) — как это работает и как «атаковать» (для команды).
 - [Исходный план спринтов и карта требований](<plan for this shit>) — спринты 0–6 и карта FR/MASK-требований.
 
