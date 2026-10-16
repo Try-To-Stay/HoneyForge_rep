@@ -30,6 +30,8 @@ sed -i "s/^SEED_LOW_ENROLL_TOKEN=.*/SEED_LOW_ENROLL_TOKEN=$(openssl rand -hex 24
 sed -i "s/^SEED_MEDIUM_ENROLL_TOKEN=.*/SEED_MEDIUM_ENROLL_TOKEN=$(openssl rand -hex 24)/" .env
 # запомнить пароль оператора:
 grep SEED_OPERATOR_PASSWORD .env
+# закрыть .env от чтения другими пользователями сервера (там секреты):
+chmod 600 .env
 
 # 3. Поднять в demo-режиме (prod overlay, БЕЗ dev-override)
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
