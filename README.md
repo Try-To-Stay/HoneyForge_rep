@@ -20,7 +20,7 @@
 - [docs/presentation.md](docs/presentation.md) — презентация к защите.
 - [docs/DEPLOY.md](docs/DEPLOY.md) — развёртывание на сервере (demo-режим).
 - [docs/TEAM.md](docs/TEAM.md) — как это работает и как «атаковать» (для команды).
-- [plan for this shit](<plan for this shit>) — исходный план спринтов и карта требований.
+- [Исходный план спринтов и карта требований](<plan for this shit>) — спринты 0–6 и карта FR/MASK-требований.
 
 ## Статус
 

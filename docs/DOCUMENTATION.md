@@ -117,6 +117,8 @@ HoneyForge_rep/
 ├─ docker-compose.prod.yml       # прод/demo-режим
 ├─ docker-compose.high.yml       # High-interaction (опц.)
 ├─ docker-compose.mtls.yml       # mTLS (опц.)
+├─ docker-compose.local.yml      # ловушки только на 127.0.0.1 (опц.)
+├─ docker-compose.exposed.yml    # ловушки на 0.0.0.0 — только изолированный стенд (опц.)
 ├─ .env.example
 ├─ center/                       # Control API + коллектор + realtime
 │  ├─ app/ (api, db, schemas, security, services, realtime, alembic)
